@@ -1,0 +1,29 @@
+packages:
+  device_base: !include common/device_base.yaml
+
+
+substitutions:
+  NAME: lime_tree_monitor
+  DESC: Lime Tree Monitor
+  BOARD: d1_mini
+
+
+sensor:
+  - platform: adc
+    pin: A0
+    name: Lime Tree Soil Moisture
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    icon: mdi:water-percent
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          # Map voltage (from sensor) to percent
+          - 0.650 -> 0.0
+          - 0.260 -> 100.0
+
+
+status_led:
+  pin:
+    number: D4
+    inverted: yes

@@ -1,0 +1,55 @@
+packages:
+  device_base: !include common/device_base.yaml
+
+substitutions:
+  NAME: esphome_island_lights
+  DESC: Island Lights
+  BOARD: esp8285
+
+binary_sensor:
+  - platform: gpio
+    id: wall_switch
+    pin:
+      number: GPIO14
+      mode: INPUT_PULLUP
+      inverted: True
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - light.toggle: island_lights
+  - platform: gpio
+    id: internal_button
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: True
+    filters:
+      - delayed_on_off: 50ms
+    on_multi_click:
+      - timing:
+        - ON for at most 5s
+        - OFF for at least 0.1s
+        then:
+          - light.toggle: island_lights
+      - timing:
+        - ON for at least 10s
+        - OFF for at least 0.1s
+        then:
+          - switch.turn_on: restart_switch
+
+light:
+  - platform: binary
+    id: island_lights
+    name: Island Lights
+    output: relay
+
+output:
+  - platform: gpio
+    pin: GPIO12
+    id: relay
+
+status_led:
+  pin:
+    number: GPIO13
+    inverted: yes

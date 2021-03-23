@@ -1,0 +1,52 @@
+packages:
+  device_base: !include common/device_base.yaml
+
+
+substitutions:
+  NAME: fireplace_lights
+  DESC: Fireplace Lights
+  BOARD: esp01_1m
+
+
+binary_sensor:
+  - platform: gpio
+    id: wall_switch
+    pin:
+      number: GPIO3
+      mode: INPUT_PULLUP
+      inverted: True
+    filters:
+      - delayed_on_off: 50ms
+    on_state:
+      then:
+        - light.toggle: fireplace_lights
+  - platform: gpio
+    id: internal_button
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: True
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - light.toggle: fireplace_lights
+
+
+light:
+  - platform: binary
+    id: fireplace_lights
+    name: Fireplace Lights
+    output: relay
+
+
+output:
+  - platform: gpio
+    pin: GPIO12
+    id: relay
+
+
+status_led:
+  pin:
+    number: GPIO13
+    inverted: yes

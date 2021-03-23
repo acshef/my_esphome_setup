@@ -1,0 +1,54 @@
+esphome:
+  name: $NAME
+  comment: $DESC
+  platform: ESP8266
+  board: $BOARD
+
+substitutions:
+  DESC: $NAME
+  LOG_LEVEL: NONE
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "$DESC Fallback"
+    password: !secret wifi_password
+
+captive_portal:
+
+logger:
+  level: $LOG_LEVEL
+
+# Enable Home Assistant API
+api:
+  services:
+    - service: restart
+      then:
+        - switch.turn_on: restart_switch
+
+ota:
+
+switch:
+  - platform: restart
+    id: restart_switch
+
+binary_sensor:
+  - platform: status
+    name: $DESC Status
+
+sensor:
+  - platform: wifi_signal
+    name: $DESC Wifi Signal
+    update_interval: 60s
+
+text_sensor:
+  - platform: version
+    name: $DESC ESPHome Version
+    hide_timestamp: True
+  - platform: wifi_info
+    ip_address:
+      name: $DESC IP Address
+      icon: "mdi:ip-network"

@@ -1,0 +1,28 @@
+packages:
+  device_base: !include common/device_base.yaml
+
+
+substitutions:
+  NAME: temp_sensor_1
+  DESC: "Temp Sensor 1"
+  BOARD: d1_mini
+
+
+i2c:
+
+
+sensor:
+  - platform: custom_aht10
+    temperature:
+      name: Master Bedroom Temperature
+      accuracy_decimals: 1
+    humidity:
+      name: Master Bedroom Humidity
+      accuracy_decimals: 1
+    update_interval: 5min
+
+
+status_led:
+  pin:
+    number: D4
+    inverted: yes
