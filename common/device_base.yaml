@@ -1,11 +1,12 @@
 esphome:
   name: $NAME
   comment: $DESC
-  platform: ESP8266
+  platform: $PLATFORM
   board: $BOARD
 
 substitutions:
   DESC: $NAME
+  PLATFORM: ESP8266
   LOG_LEVEL: NONE
 
 wifi:
