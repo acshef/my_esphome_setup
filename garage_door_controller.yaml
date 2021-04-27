@@ -1,12 +1,10 @@
 packages:
   device_base: !include common/device_base.yaml
 
-
 substitutions:
-  NAME: garage_door_controller
-  DESC: Garage Door Controller
+  NODE_NAME: garage_door_controller
+  DISPLAY_NAME: Garage Door Controller
   BOARD: d1_mini
-
 
 # Expose Home Assistant service(s)
 api:
@@ -17,9 +15,7 @@ api:
         - delay: 500ms
         - switch.turn_off: relay
 
-
 i2c:
-
 
 sensor:
   - platform: custom_aht10
@@ -30,7 +26,6 @@ sensor:
       name: Garage Humidity
       accuracy_decimals: 1
     update_interval: 5min
-
 
 text_sensor:
   - platform: two_pin_garage
@@ -52,7 +47,6 @@ switch:
       inverted: True
     id: relay
     restore_mode: ALWAYS_OFF
-
 
 status_led:
   pin:

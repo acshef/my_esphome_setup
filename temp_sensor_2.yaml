@@ -1,15 +1,12 @@
 packages:
   device_base: !include common/device_base.yaml
 
-
 substitutions:
-  NAME: temp_sensor_2
-  DESC: "Temp Sensor 2"
+  NODE_NAME: temp_sensor_2
+  DISPLAY_NAME: "Temp Sensor 2"
   BOARD: d1_mini
 
-
 i2c:
-
 
 sensor:
   - platform: custom_aht10
@@ -20,7 +17,6 @@ sensor:
       name: Office Humidity
       accuracy_decimals: 1
     update_interval: 5min
-
 
 status_led:
   pin:

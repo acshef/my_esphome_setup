@@ -1,12 +1,15 @@
 esphome:
-  name: $NAME
-  comment: $DESC
+  name: $NODE_NAME
+  comment: $DISPLAY_NAME
   platform: $PLATFORM
   board: $BOARD
+  build_path: .build/${NODE_NAME}/
 
 substitutions:
-  DESC: $NAME
+  # NODE_NAME
+  DISPLAY_NAME: $NODE_NAME
   PLATFORM: ESP8266
+  # BOARD
   LOG_LEVEL: NONE
 
 wifi:
@@ -15,7 +18,7 @@ wifi:
   fast_connect: true
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "$DESC Fallback"
+    ssid: "$NODE_NAME AP"
     password: !secret wifi_password
 
 captive_portal:
@@ -38,18 +41,47 @@ switch:
 
 binary_sensor:
   - platform: status
-    name: $DESC Status
+    name: $DISPLAY_NAME Status
 
 sensor:
   - platform: wifi_signal
-    name: $DESC Wifi Signal
+    name: $DISPLAY_NAME Wifi Signal
     update_interval: 60s
+  - platform: uptime
+    id: uptime_raw
+    update_interval: 60s
+    on_raw_value:
+      then:
+        - text_sensor.template.publish:
+            id: uptime_human
+            state: !lambda |-
+              int seconds = round(id(uptime_raw).raw_state);
+              int days = seconds / (24 * 3600);
+              seconds = seconds % (24 * 3600);
+              int hours = seconds / 3600;
+              seconds = seconds % 3600;
+              int minutes = seconds / 60;
+              seconds = seconds % 60;
+              if (days > 0) {
+                return (String(days) + "d " + String(hours) + "h").c_str();
+              }
+              if (hours > 0) {
+                return (String(hours) + "h " + String(minutes) + "m").c_str();
+              }
+              if (minutes > 0) {
+                return (String(minutes) + "m " + String(seconds) + "s").c_str();
+              }
+              return (String(seconds) + "s").c_str();
 
 text_sensor:
   - platform: version
-    name: $DESC ESPHome Version
+    name: $DISPLAY_NAME ESPHome Version
     hide_timestamp: True
   - platform: wifi_info
     ip_address:
-      name: $DESC IP Address
+      name: $DISPLAY_NAME IP Address
       icon: "mdi:ip-network"
+  - platform: template
+    name: $DISPLAY_NAME Uptime
+    id: uptime_human
+    icon: mdi:timer-outline

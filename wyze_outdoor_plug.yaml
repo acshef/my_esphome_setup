@@ -1,10 +1,9 @@
 packages:
   device_base: !include common/device_base.yaml
 
-
 substitutions:
-  NAME: wyze_outdoor_plug
-  DESC: "Wyze Oudoor Plug"
+  NODE_NAME: wyze_outdoor_plug
+  DISPLAY_NAME: "Wyze Outdoor Plug"
   PLATFORM: ESP32
   BOARD: esp-wrover-kit
   # Higher value gives lower watt readout
@@ -12,23 +11,26 @@ substitutions:
   # Lower value gives lower voltage readout
   voltage_div: "770"
 
-
 switch:
   - platform: gpio
-    name: $DESC Relay 1
+    name: $DISPLAY_NAME Relay 1
+    icon: mdi:power-plug
     pin:
       number: GPIO15
-      inverted: false
+      inverted: False
+    restore_mode: ALWAYS_ON
     id: relay1
     on_turn_on:
       - light.turn_on: relay1_led
     on_turn_off:
       - light.turn_off: relay1_led
   - platform: gpio
-    name: $DESC Relay 2
+    name: $DISPLAY_NAME Relay 2
+    icon: mdi:power-plug
     pin:
       number: GPIO32
-      inverted: false
+      inverted: False
+    restore_mode: ALWAYS_OFF
     id: relay2
     on_turn_on:
       - light.turn_on: relay2_led
@@ -56,29 +58,35 @@ light:
 sensor:
   - platform: adc
     pin: GPIO34
-    name: "$DESC Lux"
+    name: $DISPLAY_NAME Illuminance
+    icon: mdi:white-balance-sunny
+    unit_of_measurement: lx
     update_interval: 10s
     attenuation: 11db
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 3.90 -> 128.0
   - platform: hlw8012
     sel_pin:
       number: GPIO25
       inverted: true
     cf_pin: GPIO27
     cf1_pin: GPIO26
-    current_resistor: ${current_res}
-    voltage_divider: ${voltage_div}
+    current_resistor: $current_res
+    voltage_divider: $voltage_div
     change_mode_every: 3
-    update_interval: 3s
+    update_interval: 10s
     current:
-      name: "$DESC Amps"
+      name: "$DISPLAY_NAME Amps"
       unit_of_measurement: A
       accuracy_decimals: 2
     voltage:
-      name: "$DESC Volts"
+      name: "$DISPLAY_NAME Volts"
       unit_of_measurement: V
       accuracy_decimals: 1
     power:
-      name: "$DESC Watts"
+      name: "$DISPLAY_NAME Watts"
       unit_of_measurement: W
       accuracy_decimals: 0
       filters:
@@ -93,7 +101,7 @@ binary_sensor:
       number: GPIO18
       mode: INPUT_PULLDOWN
       inverted: True
-    name: $DESC Button 1
+    name: $DISPLAY_NAME Button 1
     on_press:
       - switch.toggle: relay1
   - platform: gpio
@@ -102,7 +110,7 @@ binary_sensor:
       number: GPIO17
       mode: INPUT_PULLDOWN
       inverted: True
-    name: $DESC Button 2
+    name: $DISPLAY_NAME Button 2
     on_press:
       - switch.toggle: relay2
 
