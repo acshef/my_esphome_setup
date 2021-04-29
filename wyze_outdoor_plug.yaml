@@ -3,13 +3,13 @@ packages:
 
 substitutions:
   NODE_NAME: wyze_outdoor_plug
-  DISPLAY_NAME: "Wyze Outdoor Plug"
+  DISPLAY_NAME: Wyze Outdoor Plug
   PLATFORM: ESP32
   BOARD: esp-wrover-kit
   # Higher value gives lower watt readout
-  current_res: "0.001"
+  current_res: 0.001
   # Lower value gives lower voltage readout
-  voltage_div: "770"
+  voltage_div: 770
 
 switch:
   - platform: gpio
