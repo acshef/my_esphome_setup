@@ -2,9 +2,9 @@ packages:
   device_base: !include common/device_base.yaml
 
 substitutions:
-  NODE_NAME: esphome_island_lights
+  NODE_NAME: island_lights
   DISPLAY_NAME: Island Lights
-  BOARD: esp8285
+  BOARD: esp01_1m
 
 binary_sensor:
   - platform: gpio
