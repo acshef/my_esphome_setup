@@ -1,3 +1,6 @@
+# https://www.digiblur.com/2021/03/how-to-flash-wyze-outdoor-plug-esphome.html
+# https://github.com/digiblur/digiNRG_ESPHome/blob/master/WyzeOutdoorPlug/wyzeoutdoor.yaml
+
 packages:
   device_base: !include common/device_base.yaml
 
