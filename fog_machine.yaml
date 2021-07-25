@@ -1,0 +1,50 @@
+packages:
+  device_base: !include common/device_base.yaml
+
+substitutions:
+  NODE_NAME: fog_machine
+  DISPLAY_NAME: Fog Machine
+  BOARD: d1_mini
+  LOG_LEVEL: DEBUG
+
+esphome:
+  on_loop:
+    then:
+      - if:
+          condition:
+            and:
+              - switch.is_on: relay
+              - lambda: |
+                  return (id(ha_time).now().timestamp - id(timestamp)) > id(max_on_seconds);
+          then:
+            - switch.turn_off: relay
+
+globals:
+  - id: timestamp
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: max_on_seconds
+    type: int
+    restore_value: no
+    initial_value: '10'
+
+time:
+  - platform: homeassistant
+    id: ha_time
+
+switch:
+  - platform: gpio
+    id: relay
+    name: Fog Machine
+    pin: D1
+    icon: "mdi:electric-switch"
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - lambda: |
+          id(timestamp) = id(ha_time).now().timestamp;
+
+status_led:
+  pin:
+    number: D4
+    inverted: yes
