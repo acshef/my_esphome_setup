@@ -70,12 +70,14 @@ sensor:
   - platform: max31856
     name: Grill Thermometer
     cs_pin: GPIO16 # D0 pin HIGH at boot, used to wake up from deep sleep
-    update_interval: 30s
+    accuracy_decimals: 1
+    update_interval: 10s
   - platform: adc
     pin: GPIO34
     name: $DISPLAY_NAME Illuminance
-    icon: mdi:white-balance-sunny
+    device_class: illuminance
     unit_of_measurement: lx
+    accuracy_decimals: 1
     update_interval: 10s
     attenuation: 11db
     filters:
