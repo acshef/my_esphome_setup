@@ -35,30 +35,42 @@ switch:
       inverted: False
     restore_mode: ALWAYS_OFF
     id: relay2
-    on_turn_on:
-      - light.turn_on: relay2_led
-    on_turn_off:
-      - light.turn_off: relay2_led
+    # DISABLED: (using GPIO16 for SPI Chip Select):
+    # on_turn_on:
+    #   - light.turn_on: relay2_led
+    # on_turn_off:
+    #   - light.turn_off: relay2_led
 
 output:
   - platform: gpio
     pin: GPIO19
     inverted: True
     id: relay1_led_gpio
-  - platform: gpio
-    pin: GPIO16
-    inverted: True
-    id: relay2_led_gpio
+  # DISABLED: (using GPIO16 for SPI Chip Select):
+  # - platform: gpio
+  #   pin: GPIO16
+  #   inverted: True
+  #   id: relay2_led_gpio
 
 light:
   - platform: binary
     id: relay1_led
     output: relay1_led_gpio
-  - platform: binary
-    id: relay2_led
-    output: relay2_led_gpio
+  # DISABLED: (using GPIO16 for SPI Chip Select):
+  # - platform: binary
+  #   id: relay2_led
+  #   output: relay2_led_gpio
+
+spi:
+  clk_pin: GPIO0 # Connected to FLASH button, boot fails if pulled LOW
+  miso_pin: GPIO3 # Receives data; RX pin (HIGH at boot)
+  mosi_pin: GPIO1 # Sends data; TX pin (debug output at boot)
 
 sensor:
+  - platform: max31856
+    name: Grill Thermometer
+    cs_pin: GPIO16 # D0 pin HIGH at boot, used to wake up from deep sleep
+    update_interval: 30s
   - platform: adc
     pin: GPIO34
     name: $DISPLAY_NAME Illuminance
