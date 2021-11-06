@@ -88,8 +88,11 @@ bool CustomAHT10Component::enable_factory_cal_coeff() {
     if (!calibration_response) {
         return false;
     }
-    uint8_t data;
-    if (!this->read_byte(0, &data, AHT10_DEFAULT_DELAY)) {
+
+    uint8_t data = 0;
+
+    delay(AHT10_DEFAULT_DELAY);
+    if (this->read(&data, 1) != i2c::ERROR_OK) {
       ESP_LOGVV(TAG, "Couldn't read data for determining calibration");
       return false;
     }
@@ -108,13 +111,19 @@ void CustomAHT10Component::update() {
     this->status_set_warning();
     return;
   }
-  delay(AHT10_MEASUREMENT_DELAY);
+
+  bool success = false;
   uint8_t data[6];
+
   for (int i = 0; i < AHT10_ATTEMPTS; ++i) {
-    ESP_LOGVV(TAG, "Attemps %u at %6ld", i, millis());
-    if (!this->read_bytes(0, data, 6, AHT10_MEASUREMENT_DELAY)) {
+    delay(AHT10_MEASUREMENT_DELAY);
+    ESP_LOGVV(TAG, "Attempt %u at %6ld", i, millis());
+    if (this->read(data, 6) != i2c::ERROR_OK) {
       ESP_LOGD(TAG, "Communication with AHT10 failed, waiting...");
-    } else if ((data[0] & 0x80) == 0x80) {  // Bit[7] = 0b1, device is busy
+      continue;
+    }
+
+    if ((data[0] & 0x80) == 0x80) {  // Bit[7] = 0b1, device is busy
       ESP_LOGD(TAG, "AHT10 is busy, waiting...");
     } else if (data[1] == 0x0 && data[2] == 0x0 && (data[3] >> 4) == 0x0) {
       // Unrealistic humidity (0x0)
@@ -132,10 +141,12 @@ void CustomAHT10Component::update() {
     } else {
       // data is valid, we can break the loop
       ESP_LOGVV(TAG, "Answer at %6ld", millis());
+      success = true;
       break;
     }
   }
-  if ((data[0] & 0x80) == 0x80) {
+
+  if (!success || (data[0] & 0x80) == 0x80) {
     ESP_LOGE(TAG, "Measurements reading timed-out!");
     this->status_set_warning();
     return;
