@@ -7,6 +7,14 @@ substitutions:
   BOARD: d1_mini
 
 sensor:
+  - platform: custom_aht10
+    temperature:
+      name: Guest Bedroom Temperature
+      accuracy_decimals: 1
+    humidity:
+      name: Guest Bedroom Humidity
+      accuracy_decimals: 1
+    update_interval: 5min
   - platform: adc
     pin: A0
     name: Lime Tree Soil Moisture
