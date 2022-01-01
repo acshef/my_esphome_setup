@@ -31,25 +31,24 @@ logger:
 
 # Enable Home Assistant API
 api:
-  services:
-    - service: restart
-      then:
-        - switch.turn_on: restart_switch
 
 ota:
 
-switch:
+button:
   - platform: restart
-    id: restart_switch
+    id: restart_button
+    name: $DISPLAY_NAME Restart
 
 binary_sensor:
   - platform: status
     name: $DISPLAY_NAME Status
+    entity_category: diagnostic
 
 sensor:
   - platform: wifi_signal
     name: $DISPLAY_NAME Wifi Signal
     update_interval: 60s
+    entity_category: diagnostic
   - platform: uptime
     id: uptime_raw
     update_interval: 60s
@@ -80,11 +79,14 @@ text_sensor:
   - platform: version
     name: $DISPLAY_NAME ESPHome Version
     hide_timestamp: True
+    entity_category: diagnostic
   - platform: wifi_info
     ip_address:
       name: $DISPLAY_NAME IP Address
       icon: "mdi:ip-network"
+      entity_category: diagnostic
   - platform: template
     name: $DISPLAY_NAME Uptime
     id: uptime_human
     icon: mdi:timer-outline
+    entity_category: diagnostic
