@@ -6,6 +6,8 @@ substitutions:
   DISPLAY_NAME: Lime Tree Monitor
   BOARD: d1_mini
 
+i2c:
+
 sensor:
   - platform: custom_aht10
     temperature:
