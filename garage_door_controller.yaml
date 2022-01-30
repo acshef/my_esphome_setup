@@ -27,18 +27,15 @@ sensor:
       accuracy_decimals: 1
     update_interval: 5min
 
-text_sensor:
-  - platform: two_pin_garage
+binary_sensor:
+  - platform: gpio
+    device_class: garage_door
     name: Garage Door
-    debounce: 1s
-    top_pin:
-      number: D7
-      inverted: True
-      mode: INPUT_PULLUP
-    bottom_pin:
+    pin:
       number: D6
-      inverted: True
       mode: INPUT_PULLUP
+    filters:
+      - delayed_on_off: 250ms
 
 switch:
   - platform: gpio
