@@ -9,14 +9,14 @@ substitutions:
 i2c:
 
 sensor:
-  - platform: custom_aht10
+  - platform: aht10
     temperature:
       name: Master Bedroom Temperature
       accuracy_decimals: 1
     humidity:
       name: Master Bedroom Humidity
       accuracy_decimals: 1
-    update_interval: 5min
+    update_interval: 60s
 
 status_led:
   pin:
