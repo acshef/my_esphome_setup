@@ -46,6 +46,7 @@ binary_sensor:
 
 sensor:
   - platform: wifi_signal
+    id: wifi_strength
     name: $DISPLAY_NAME Wifi Signal
     update_interval: 60s
     entity_category: diagnostic
@@ -77,13 +78,20 @@ sensor:
 
 text_sensor:
   - platform: version
+    id: esp_version
     name: $DISPLAY_NAME ESPHome Version
     hide_timestamp: True
     entity_category: diagnostic
   - platform: wifi_info
     ip_address:
       name: $DISPLAY_NAME IP Address
+      id: ip_address
       icon: "mdi:ip-network"
+      entity_category: diagnostic
+    mac_address:
+      name: $DISPLAY_NAME MAC Address
+      id: mac_address
+      icon: "mdi:tag-text"
       entity_category: diagnostic
   - platform: template
     name: $DISPLAY_NAME Uptime
