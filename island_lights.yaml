@@ -7,8 +7,17 @@ substitutions:
   BOARD: esp01_1m
 
 binary_sensor:
+  # As of 2022-07-23 in preparation for selling the house,
+  # the momentary button has been replaced with a self-latching button.
+  # The Sonoff Basic can be removed and the lights can be connected
+  # directly to the button
+  # Button specs:
+  # * SPDT self-latching
+  # * 16mm thread diameter
+  # * 24VDC green LED for ring illumination
+  # * Switch is rated for 250VAC 3A
   - platform: gpio
-    id: wall_switch
+    id: physical_button
     pin:
       number: GPIO14
       mode: INPUT_PULLUP
@@ -17,7 +26,10 @@ binary_sensor:
       - delayed_on_off: 50ms
     on_press:
       then:
-        - light.toggle: island_lights
+        - light.turn_on: island_lights
+    on_release:
+      then:
+        - light.turn_off: island_lights
   - platform: gpio
     id: internal_button
     pin:
