@@ -2,8 +2,8 @@ packages:
   device_base: !include common/device_base.yaml
 
 substitutions:
-  NODE_NAME: temp_sensor_1
-  DISPLAY_NAME: "Temp Sensor 1"
+  NODE_NAME: temp-sensor-1
+  FRIENDLY_NAME: "Temp Sensor 1"
   BOARD: d1_mini
 
 i2c:
@@ -11,10 +11,10 @@ i2c:
 sensor:
   - platform: aht10
     temperature:
-      name: Master Bedroom Temperature
+      name: Guest Bedroom Temperature
       accuracy_decimals: 1
     humidity:
-      name: Master Bedroom Humidity
+      name: Guest Bedroom Humidity
       accuracy_decimals: 1
     update_interval: 60s
 
