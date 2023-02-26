@@ -1,0 +1,52 @@
+packages:
+    device_base: !include common/device_base.yaml
+
+substitutions:
+    NODE_NAME: fireplace
+    FRIENDLY_NAME: Fireplace
+    BOARD: d1_mini
+
+i2c:
+
+binary_sensor:
+    - platform: gpio
+      name: Wall switch
+      id: wall_switch
+      pin:
+          number: D6
+          mode: INPUT_PULLUP
+          inverted: True
+      filters:
+          - delayed_on_off: 50ms
+      on_press:
+          then:
+              - switch.toggle: relay
+
+switch:
+    - platform: gpio
+      name: Fireplace
+      icon: "mdi:fireplace"
+      pin:
+          number: D5
+          inverted: True
+      id: relay
+      restore_mode: ALWAYS_OFF
+
+sensor:
+    - platform: adc
+      pin: A0
+      name: Fan Current
+      update_interval: 60s
+    - platform: aht10
+      temperature:
+          name: Fireplace Temperature
+          accuracy_decimals: 1
+      humidity:
+          name: Fireplace Humidity
+          accuracy_decimals: 1
+      update_interval: 60s
+
+status_led:
+    pin:
+        number: D4
+        inverted: yes
