@@ -9,6 +9,11 @@ substitutions:
 i2c:
 
 binary_sensor:
+    - platform: analog_threshold
+      name: Fan
+      sensor_id: fireplace_fan_raw
+      threshold: 500
+      icon: mdi:weather-windy
     - platform: gpio
       name: Wall switch
       id: wall_switch
@@ -20,7 +25,10 @@ binary_sensor:
           - delayed_on_off: 50ms
       on_press:
           then:
-              - switch.toggle: relay
+              - switch.turn_on: relay
+      on_release:
+          then:
+              - switch.turn_off: relay
 
 switch:
     - platform: gpio
@@ -35,8 +43,9 @@ switch:
 sensor:
     - platform: adc
       pin: A0
-      name: Fan Current
-      update_interval: 60s
+      id: fireplace_fan_raw
+      raw: True
+      update_interval: 1s
     - platform: aht10
       temperature:
           name: Temperature
