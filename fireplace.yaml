@@ -39,10 +39,10 @@ sensor:
       update_interval: 60s
     - platform: aht10
       temperature:
-          name: Fireplace Temperature
+          name: Temperature
           accuracy_decimals: 1
       humidity:
-          name: Fireplace Humidity
+          name: Humidity
           accuracy_decimals: 1
       update_interval: 60s
 

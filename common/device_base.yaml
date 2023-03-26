@@ -1,33 +1,33 @@
 esphome:
-  name: $NODE_NAME
-  friendly_name: $FRIENDLY_NAME
-  platform: $PLATFORM
-  board: $BOARD
-  build_path: .build/${NODE_NAME}/
+    name: $NODE_NAME
+    friendly_name: $FRIENDLY_NAME
+    platform: $PLATFORM
+    board: $BOARD
+    build_path: .build/${NODE_NAME}/
 
 substitutions:
-  # NODE_NAME
-  FRIENDLY_NAME: $NODE_NAME
-  PLATFORM: ESP8266
-  # BOARD
-  LOG_LEVEL: NONE
+    # NODE_NAME
+    FRIENDLY_NAME: $NODE_NAME
+    PLATFORM: ESP8266
+    # BOARD
+    LOG_LEVEL: NONE
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  fast_connect: true
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: "$NODE_NAME AP"
+    ssid: !secret wifi_ssid
     password: !secret wifi_password
+    fast_connect: true
+    # Enable fallback hotspot (captive portal) in case wifi connection fails
+    ap:
+        ssid: "$NODE_NAME AP"
+        password: !secret wifi_password
 
 external_components:
-  - source: my_components
+    - source: my_components
 
 captive_portal:
 
 logger:
-  level: $LOG_LEVEL
+    level: $LOG_LEVEL
 
 # Enable Home Assistant API
 api:
@@ -35,66 +35,66 @@ api:
 ota:
 
 button:
-  - platform: restart
-    id: restart_button
-    name: $FRIENDLY_NAME Restart
+    - platform: restart
+      id: restart_button
+      name: Restart
 
 binary_sensor:
-  - platform: status
-    name: $FRIENDLY_NAME Status
-    entity_category: diagnostic
+    - platform: status
+      name: Status
+      entity_category: diagnostic
 
 sensor:
-  - platform: wifi_signal
-    id: wifi_strength
-    name: $FRIENDLY_NAME Wifi Signal
-    update_interval: 60s
-    entity_category: diagnostic
-  - platform: uptime
-    id: uptime_raw
-    update_interval: 60s
-    on_raw_value:
-      then:
-        - text_sensor.template.publish:
-            id: uptime_human
-            state: !lambda |-
-              int seconds = round(id(uptime_raw).raw_state);
-              int days = seconds / (24 * 3600);
-              seconds = seconds % (24 * 3600);
-              int hours = seconds / 3600;
-              seconds = seconds % 3600;
-              int minutes = seconds / 60;
-              seconds = seconds % 60;
-              if (days > 0) {
-                return (String(days) + "d " + String(hours) + "h").c_str();
-              }
-              if (hours > 0) {
-                return (String(hours) + "h " + String(minutes) + "m").c_str();
-              }
-              if (minutes > 0) {
-                return (String(minutes) + "m " + String(seconds) + "s").c_str();
-              }
-              return (String(seconds) + "s").c_str();
+    - platform: wifi_signal
+      id: wifi_strength
+      name: Wifi Signal
+      update_interval: 60s
+      entity_category: diagnostic
+    - platform: uptime
+      id: uptime_raw
+      update_interval: 60s
+      on_raw_value:
+          then:
+              - text_sensor.template.publish:
+                    id: uptime_human
+                    state: !lambda |-
+                        int seconds = round(id(uptime_raw).raw_state);
+                        int days = seconds / (24 * 3600);
+                        seconds = seconds % (24 * 3600);
+                        int hours = seconds / 3600;
+                        seconds = seconds % 3600;
+                        int minutes = seconds / 60;
+                        seconds = seconds % 60;
+                        if (days > 0) {
+                          return (String(days) + "d " + String(hours) + "h").c_str();
+                        }
+                        if (hours > 0) {
+                          return (String(hours) + "h " + String(minutes) + "m").c_str();
+                        }
+                        if (minutes > 0) {
+                          return (String(minutes) + "m " + String(seconds) + "s").c_str();
+                        }
+                        return (String(seconds) + "s").c_str();
 
 text_sensor:
-  - platform: version
-    id: esp_version
-    name: $FRIENDLY_NAME ESPHome Version
-    hide_timestamp: True
-    entity_category: diagnostic
-  - platform: wifi_info
-    ip_address:
-      name: $FRIENDLY_NAME IP Address
-      id: ip_address
-      icon: "mdi:ip-network"
+    - platform: version
+      id: esp_version
+      name: ESPHome Version
+      hide_timestamp: True
       entity_category: diagnostic
-    mac_address:
-      name: $FRIENDLY_NAME MAC Address
-      id: mac_address
-      icon: "mdi:tag-text"
+    - platform: wifi_info
+      ip_address:
+          name: IP Address
+          id: ip_address
+          icon: "mdi:ip-network"
+          entity_category: diagnostic
+      mac_address:
+          name: MAC Address
+          id: mac_address
+          icon: "mdi:tag-text"
+          entity_category: diagnostic
+    - platform: template
+      name: Uptime
+      id: uptime_human
+      icon: mdi:timer-outline
       entity_category: diagnostic
-  - platform: template
-    name: $FRIENDLY_NAME Uptime
-    id: uptime_human
-    icon: mdi:timer-outline
-    entity_category: diagnostic

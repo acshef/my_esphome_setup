@@ -1,24 +1,24 @@
 packages:
-  device_base: !include common/device_base.yaml
+    device_base: !include common/device_base.yaml
 
 substitutions:
-  NODE_NAME: temp-sensor-1
-  FRIENDLY_NAME: "Temp Sensor 1"
-  BOARD: d1_mini
+    NODE_NAME: temp-sensor-1
+    FRIENDLY_NAME: "Temp Sensor 1"
+    BOARD: d1_mini
 
 i2c:
 
 sensor:
-  - platform: aht10
-    temperature:
-      name: Guest Bedroom Temperature
-      accuracy_decimals: 1
-    humidity:
-      name: Guest Bedroom Humidity
-      accuracy_decimals: 1
-    update_interval: 60s
+    - platform: aht10
+      temperature:
+          name: Temperature
+          accuracy_decimals: 1
+      humidity:
+          name: Humidity
+          accuracy_decimals: 1
+      update_interval: 60s
 
 status_led:
-  pin:
-    number: D4
-    inverted: yes
+    pin:
+        number: D4
+        inverted: yes
