@@ -1,0 +1,24 @@
+packages:
+    device_base: !include common/device_base.yaml
+
+substitutions:
+    NODE_NAME: temp-sensor-2
+    FRIENDLY_NAME: "Temp Sensor 2"
+    BOARD: d1_mini
+
+i2c:
+
+sensor:
+    - platform: aht10
+      temperature:
+          name: Temperature
+          accuracy_decimals: 1
+      humidity:
+          name: Humidity
+          accuracy_decimals: 1
+      update_interval: 60s
+
+status_led:
+    pin:
+        number: D4
+        inverted: yes
