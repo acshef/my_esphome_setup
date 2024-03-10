@@ -55,12 +55,17 @@ sensor:
                     id: uptime_human
                     state: !lambda |-
                         int seconds = round(id(uptime_raw).raw_state);
-                        int days = seconds / (24 * 3600);
-                        seconds = seconds % (24 * 3600);
-                        int hours = seconds / 3600;
-                        seconds = seconds % 3600;
+                        int weeks = seconds / 604800; // 7 * 24 * 3600 = 604800
+                        seconds = seconds % 604800;   // 7 * 24 * 3600 = 604800
+                        int days = seconds / 86400;   // 24 * 60 * 60 = 86400
+                        seconds = seconds % 86400;    // 24 * 60 * 60 = 86400
+                        int hours = seconds / 3600;   // 60 * 60 = 3600
+                        seconds = seconds % 3600;     // 60 * 60 = 3600
                         int minutes = seconds / 60;
                         seconds = seconds % 60;
+                        if (weeks > 0) {
+                          return (String(weeks) + "w " + String(days) + "d").c_str();
+                        }
                         if (days > 0) {
                           return (String(days) + "d " + String(hours) + "h").c_str();
                         }
