@@ -1,15 +1,11 @@
 esphome:
     name: $NODE_NAME
     friendly_name: $FRIENDLY_NAME
-    platform: $PLATFORM
-    board: $BOARD
     build_path: .build/${NODE_NAME}/
 
 substitutions:
     # NODE_NAME
     FRIENDLY_NAME: $NODE_NAME
-    PLATFORM: ESP8266
-    # BOARD
     LOG_LEVEL: NONE
 
 wifi:

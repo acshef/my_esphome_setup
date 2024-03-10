@@ -1,0 +1,7 @@
+packages:
+    device_base: !include common/ratgdo.yaml
+
+substitutions:
+    NODE_NAME: garage-door-big
+    FRIENDLY_NAME: "Big Garage Door"
+    LOG_LEVEL: DEBUG
