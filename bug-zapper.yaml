@@ -1,0 +1,52 @@
+packages:
+    device_base: !include common/device_base.yaml
+
+esp8266:
+    board: esp01_1m
+
+substitutions:
+    NODE_NAME: bug-zapper
+    FRIENDLY_NAME: Bug Zapper
+
+binary_sensor:
+    - platform: gpio
+      id: physical_button
+      pin:
+          number: GPIO3
+          mode: INPUT_PULLUP
+          inverted: True
+      filters:
+          - delayed_on_off: 50ms
+      on_press:
+          then:
+              - switch.toggle: relay
+    - platform: gpio
+      id: internal_button
+      pin:
+          number: GPIO0
+          mode: INPUT_PULLUP
+          inverted: True
+      filters:
+          - delayed_on_off: 50ms
+      on_multi_click:
+          - timing:
+                - ON for at most 5s
+                - OFF for at least 0.1s
+            then:
+                - switch.toggle: relay
+          - timing:
+                - ON for at least 10s
+                - OFF for at least 0.1s
+            then:
+                - button.press: restart_button
+switch:
+    - platform: gpio
+      id: relay
+      name: Bug Zapper
+      icon: mdi:shield-bug-outline
+      pin: GPIO12
+
+status_led:
+    pin:
+        number: GPIO13
+        inverted: yes
