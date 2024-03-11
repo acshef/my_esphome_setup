@@ -1,17 +1,17 @@
 packages:
-    device_base: !include device_base.yaml
+  device_base: !include device_base.yaml
 
 substitutions:
-    # NODE_NAME
-    # FRIENDLY_NAME
-    # BOARD: d1_mini
-    PIN_UART_RX: D4
-    PIN_UART_TX: D2
-    PIN_OBST: D7
-    RATGDO_ID: ratgdov2
+  # NODE_NAME
+  # FRIENDLY_NAME
+  # BOARD: d1_mini
+  PIN_UART_RX: D4
+  PIN_UART_TX: D2
+  PIN_OBST: D7
+  RATGDO_ID: ratgdov2
 
 esp8266:
-    board: d1_mini
+  board: d1_mini
 
 #mqtt:
 #    broker: 10.0.0.100
@@ -21,19 +21,19 @@ esp8266:
 #    log_topic: null
 
 globals:
-    - id: synced_rolling_code_counter
-      type: bool
-      initial_value: "false"
-    - id: synced_opening_duration
-      type: bool
-      initial_value: "false"
-    - id: synced_closing_duration
-      type: bool
-      initial_value: "false"
+  - id: synced_rolling_code_counter
+    type: bool
+    initial_value: "false"
+  - id: synced_opening_duration
+    type: bool
+    initial_value: "false"
+  - id: synced_closing_duration
+    type: bool
+    initial_value: "false"
 
 external_components:
-    - source: github://ratgdo/esphome-ratgdo
-      refresh: 1h
+  - source: github://ratgdo/esphome-ratgdo
+    refresh: 1h
 
 #ratgdo:
 #    id: $RATGDO_ID
@@ -100,11 +100,11 @@ switch:
 #      name: "Lock remotes"
 
 binary_sensor:
-    # - platform: ratgdo
-    #   ratgdo_id: $RATGDO_ID
-    #   type: motion
-    #   name: Motion
-    #   device_class: motion
+  # - platform: ratgdo
+  #   ratgdo_id: $RATGDO_ID
+  #   type: motion
+  #   name: Motion
+  #   device_class: motion
 #    - platform: ratgdo
 #      ratgdo_id: $RATGDO_ID
 #      type: obstruction

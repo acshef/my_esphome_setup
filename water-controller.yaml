@@ -1,453 +1,453 @@
 packages:
-    device_base: !include common/device_base.yaml
+  device_base: !include common/device_base.yaml
 
 esp32:
-    board: nodemcu-32s
+  board: nodemcu-32s
 
 esphome:
-    on_loop:
-        then:
-            - lambda: |-
-                  uint32_t app_state = App.get_app_state() & STATUS_LED_MASK;
+  on_loop:
+    then:
+      - lambda: |-
+          uint32_t app_state = App.get_app_state() & STATUS_LED_MASK;
 
-                  if ((app_state & STATUS_LED_ERROR) != 0u) {
-                      id(status_led_active) = true;
-                      auto call = id(led_red).make_call().set_state(millis() % 250u < 150u);
-                      call.perform();
-                  } else if ((app_state & STATUS_LED_WARNING) != 0u) {
-                      id(status_led_active) = true;
-                      auto call = id(led_red).make_call().set_state(millis() % 1500u < 250u);
-                      call.perform();
-                  } else if (id(status_led_active)) {
-                      // No warning/error, but the global flag is still active:
-                      // Disable the flag and restore lights
-                      id(status_led_active) = false;
+          if ((app_state & STATUS_LED_ERROR) != 0u) {
+              id(status_led_active) = true;
+              auto call = id(led_red).make_call().set_state(millis() % 250u < 150u);
+              call.perform();
+          } else if ((app_state & STATUS_LED_WARNING) != 0u) {
+              id(status_led_active) = true;
+              auto call = id(led_red).make_call().set_state(millis() % 1500u < 250u);
+              call.perform();
+          } else if (id(status_led_active)) {
+              // No warning/error, but the global flag is still active:
+              // Disable the flag and restore lights
+              id(status_led_active) = false;
 
-                      auto state_red = id(dummy_red).current_values;
-                      auto state_green = id(dummy_green).current_values;
-                      auto state_blue = id(dummy_blue).current_values;
-                      if (state_red.is_on()) {
-                          // Restore red light
-                          id(led_green).turn_off().perform();
-                          id(led_blue).turn_off().perform();
-                          auto call = id(led_red).make_call();
-                          call.from_light_color_values(state_red);
-                          call.set_effect(id(dummy_red).get_effect_name());
-                          call.perform();
-                      } else if (state_green.is_on()) {
-                          // Restore green light
-                          id(led_red).turn_off().perform();
-                          id(led_blue).turn_off().perform();
-                          auto call = id(led_green).make_call();
-                          call.from_light_color_values(state_green);
-                          call.set_effect(id(dummy_green).get_effect_name());
-                          call.perform();
-                      } else if (state_blue.is_on()) {
-                          // Restore blue light
-                          id(led_red).turn_off().perform();
-                          id(led_green).turn_off().perform();
-                          auto call = id(led_blue).make_call();
-                          call.from_light_color_values(state_blue);
-                          call.set_effect(id(dummy_blue).get_effect_name());
-                          call.perform();
-                      } else {
-                          // No lights are on
-                          id(led_red).turn_off().perform();
-                          id(led_green).turn_off().perform();
-                          id(led_blue).turn_off().perform();
-                      }
-                  }
+              auto state_red = id(dummy_red).current_values;
+              auto state_green = id(dummy_green).current_values;
+              auto state_blue = id(dummy_blue).current_values;
+              if (state_red.is_on()) {
+                  // Restore red light
+                  id(led_green).turn_off().perform();
+                  id(led_blue).turn_off().perform();
+                  auto call = id(led_red).make_call();
+                  call.from_light_color_values(state_red);
+                  call.set_effect(id(dummy_red).get_effect_name());
+                  call.perform();
+              } else if (state_green.is_on()) {
+                  // Restore green light
+                  id(led_red).turn_off().perform();
+                  id(led_blue).turn_off().perform();
+                  auto call = id(led_green).make_call();
+                  call.from_light_color_values(state_green);
+                  call.set_effect(id(dummy_green).get_effect_name());
+                  call.perform();
+              } else if (state_blue.is_on()) {
+                  // Restore blue light
+                  id(led_red).turn_off().perform();
+                  id(led_green).turn_off().perform();
+                  auto call = id(led_blue).make_call();
+                  call.from_light_color_values(state_blue);
+                  call.set_effect(id(dummy_blue).get_effect_name());
+                  call.perform();
+              } else {
+                  // No lights are on
+                  id(led_red).turn_off().perform();
+                  id(led_green).turn_off().perform();
+                  id(led_blue).turn_off().perform();
+              }
+          }
 
 globals:
-    - id: status_led_active
-      type: bool
-      restore_value: False
-      initial_value: "0"
+  - id: status_led_active
+    type: bool
+    restore_value: False
+    initial_value: "0"
 
 substitutions:
-    NODE_NAME: water-controller
-    FRIENDLY_NAME: Water Controller
-    ADS1115_ADDR: "0x48"
-    ADS1115_GAIN: "4.096"
-    ADS1115_UPDATE_INTERVAL: "1s"
-    PSI1_ZERO_VALUE: "0.0"
-    PSI1_LOAD_VALUE: "1000"
-    PSI1_LOAD_PRESSURE: "45" # psi
-    PSI2_ZERO_VALUE: "0.0"
-    PSI2_LOAD_VALUE: "1000"
-    PSI2_LOAD_PRESSURE: "45" # psi
-    PSI3_ZERO_VALUE: "0.0"
-    PSI3_LOAD_VALUE: "1000"
-    PSI3_LOAD_PRESSURE: "45" # psi
-    HX711_ZERO_VALUE: "115250"
-    HX711_LOAD_VALUE: "1798000"
-    HX711_LOAD_WEIGHT: "150" # lbs
-    HX711_UPDATE_INTERVAL: "1s"
-    LOG_LEVEL: INFO
-    PIN_BUTTON: GPIO19
-    PIN_LED_RED: GPIO32
-    PIN_LED_GREEN: GPIO33
-    PIN_LED_BLUE: GPIO25
-    PIN_LED_STATUS: GPIO20 # Not exposed in ESP32 DevKitC
-    PIN_HX711_CLK: GPIO16
-    PIN_HX711_DOUT: GPIO17
-    PIN_MOTOR_FWD: GPIO26
-    PIN_MOTOR_REV: GPIO27
-    TIME_MOTOR_ON: 15s # How long it takes to open and close the valve
+  NODE_NAME: water-controller
+  FRIENDLY_NAME: Water Controller
+  ADS1115_ADDR: "0x48"
+  ADS1115_GAIN: "4.096"
+  ADS1115_UPDATE_INTERVAL: "1s"
+  PSI1_ZERO_VALUE: "0.0"
+  PSI1_LOAD_VALUE: "1000"
+  PSI1_LOAD_PRESSURE: "45" # psi
+  PSI2_ZERO_VALUE: "0.0"
+  PSI2_LOAD_VALUE: "1000"
+  PSI2_LOAD_PRESSURE: "45" # psi
+  PSI3_ZERO_VALUE: "0.0"
+  PSI3_LOAD_VALUE: "1000"
+  PSI3_LOAD_PRESSURE: "45" # psi
+  HX711_ZERO_VALUE: "115250"
+  HX711_LOAD_VALUE: "1798000"
+  HX711_LOAD_WEIGHT: "150" # lbs
+  HX711_UPDATE_INTERVAL: "1s"
+  LOG_LEVEL: INFO
+  PIN_BUTTON: GPIO19
+  PIN_LED_RED: GPIO32
+  PIN_LED_GREEN: GPIO33
+  PIN_LED_BLUE: GPIO25
+  PIN_LED_STATUS: GPIO20 # Not exposed in ESP32 DevKitC
+  PIN_HX711_CLK: GPIO16
+  PIN_HX711_DOUT: GPIO17
+  PIN_MOTOR_FWD: GPIO26
+  PIN_MOTOR_REV: GPIO27
+  TIME_MOTOR_ON: 15s # How long it takes to open and close the valve
 
 i2c:
 
 ads1115:
-    - address: $ADS1115_ADDR
+  - address: $ADS1115_ADDR
 
 output:
-    - platform: gpio
-      id: motor_forward
-      pin: $PIN_MOTOR_FWD # Pin to IN1
-    - platform: gpio
-      id: motor_reverse
-      pin: $PIN_MOTOR_REV # Pin to IN2
-    - platform: gpio
-      id: led_red_output
-      pin:
-          inverted: True
-          number: $PIN_LED_RED
-    - platform: gpio
-      id: led_green_output
-      pin:
-          inverted: True
-          number: $PIN_LED_GREEN
-    - platform: gpio
-      id: led_blue_output
-      pin:
-          inverted: True
-          number: $PIN_LED_BLUE
+  - platform: gpio
+    id: motor_forward
+    pin: $PIN_MOTOR_FWD # Pin to IN1
+  - platform: gpio
+    id: motor_reverse
+    pin: $PIN_MOTOR_REV # Pin to IN2
+  - platform: gpio
+    id: led_red_output
+    pin:
+      inverted: True
+      number: $PIN_LED_RED
+  - platform: gpio
+    id: led_green_output
+    pin:
+      inverted: True
+      number: $PIN_LED_GREEN
+  - platform: gpio
+    id: led_blue_output
+    pin:
+      inverted: True
+      number: $PIN_LED_BLUE
 
 light:
-    - platform: binary
-      id: led_red
-      output: led_red_output
-      effects:
-          - strobe:
-                name: Strobe Slow
-                colors:
-                    - state: true
-                      duration: 1s
-                    - state: false
-                      duration: 1s
-          - strobe:
-                name: Strobe Fast
-                colors:
-                    - state: true
-                      duration: 100ms
-                    - state: false
-                      duration: 100ms
-    - platform: dummy_light
-      id: dummy_red
-      name: LED Red
-      icon: mdi:radiobox-marked
-      effects:
-          - strobe:
-                name: Strobe Slow
-                colors:
-                    - state: true
-                      duration: 1s
-                    - state: false
-                      duration: 1s
-          - strobe:
-                name: Strobe Fast
-                colors:
-                    - state: true
-                      duration: 100ms
-                    - state: false
-                      duration: 100ms
-      on_state:
-          - lambda: |-
-                auto state = id(dummy_red).current_values;
-                auto call = id(led_red).make_call();
-                call.from_light_color_values(state);
-                if (state.is_on()) {
-                    id(led_green).turn_off().perform();
-                    id(led_blue).turn_off().perform();
-                    id(dummy_green).turn_off().perform();
-                    id(dummy_blue).turn_off().perform();
-                    call.set_effect(id(dummy_red).get_effect_name());
-                }
-                if (!id(status_led_active)) {
-                    call.perform();
-                }
-    - platform: binary
-      id: led_green
-      output: led_green_output
-      effects:
-          - strobe:
-                name: Strobe Slow
-                colors:
-                    - state: true
-                      duration: 1s
-                    - state: false
-                      duration: 1s
-          - strobe:
-                name: Strobe Fast
-                colors:
-                    - state: true
-                      duration: 100ms
-                    - state: false
-                      duration: 100ms
-    - platform: dummy_light
-      id: dummy_green
-      name: LED Green
-      icon: mdi:radiobox-marked
-      effects:
-          - strobe:
-                name: Strobe Slow
-                colors:
-                    - state: true
-                      duration: 1s
-                    - state: false
-                      duration: 1s
-          - strobe:
-                name: Strobe Fast
-                colors:
-                    - state: true
-                      duration: 100ms
-                    - state: false
-                      duration: 100ms
-      on_state:
-          - lambda: |-
-                auto state = id(dummy_green).current_values;
-                auto call = id(led_green).make_call();
-                call.from_light_color_values(state);
-                if (state.is_on()) {
-                    id(led_red).turn_off().perform();
-                    id(led_blue).turn_off().perform();
-                    id(dummy_red).turn_off().perform();
-                    id(dummy_blue).turn_off().perform();
-                    call.set_effect(id(dummy_green).get_effect_name());
-                }
-                if (!id(status_led_active)) {
-                    call.perform();
-                }
-    - platform: binary
-      id: led_blue
-      output: led_blue_output
-      effects:
-          - strobe:
-                name: Strobe Slow
-                colors:
-                    - state: true
-                      duration: 1s
-                    - state: false
-                      duration: 1s
-          - strobe:
-                name: Strobe Fast
-                colors:
-                    - state: true
-                      duration: 100ms
-                    - state: false
-                      duration: 100ms
-    - platform: dummy_light
-      id: dummy_blue
-      name: LED Blue
-      icon: mdi:radiobox-marked
-      effects:
-          - strobe:
-                name: Strobe Slow
-                colors:
-                    - state: true
-                      duration: 1s
-                    - state: false
-                      duration: 1s
-          - strobe:
-                name: Strobe Fast
-                colors:
-                    - state: true
-                      duration: 100ms
-                    - state: false
-                      duration: 100ms
-      on_state:
-          - lambda: |-
-                auto state = id(dummy_blue).current_values;
-                auto call = id(led_blue).make_call();
-                call.from_light_color_values(state);
-                if (state.is_on()) {
-                    id(led_red).turn_off().perform();
-                    id(led_green).turn_off().perform();
-                    id(dummy_red).turn_off().perform();
-                    id(dummy_green).turn_off().perform();
-                    call.set_effect(id(dummy_blue).get_effect_name());
-                }
-                if (!id(status_led_active)) {
-                    call.perform();
-                }
+  - platform: binary
+    id: led_red
+    output: led_red_output
+    effects:
+      - strobe:
+          name: Strobe Slow
+          colors:
+            - state: true
+              duration: 1s
+            - state: false
+              duration: 1s
+      - strobe:
+          name: Strobe Fast
+          colors:
+            - state: true
+              duration: 100ms
+            - state: false
+              duration: 100ms
+  - platform: dummy_light
+    id: dummy_red
+    name: LED Red
+    icon: mdi:radiobox-marked
+    effects:
+      - strobe:
+          name: Strobe Slow
+          colors:
+            - state: true
+              duration: 1s
+            - state: false
+              duration: 1s
+      - strobe:
+          name: Strobe Fast
+          colors:
+            - state: true
+              duration: 100ms
+            - state: false
+              duration: 100ms
+    on_state:
+      - lambda: |-
+          auto state = id(dummy_red).current_values;
+          auto call = id(led_red).make_call();
+          call.from_light_color_values(state);
+          if (state.is_on()) {
+              id(led_green).turn_off().perform();
+              id(led_blue).turn_off().perform();
+              id(dummy_green).turn_off().perform();
+              id(dummy_blue).turn_off().perform();
+              call.set_effect(id(dummy_red).get_effect_name());
+          }
+          if (!id(status_led_active)) {
+              call.perform();
+          }
+  - platform: binary
+    id: led_green
+    output: led_green_output
+    effects:
+      - strobe:
+          name: Strobe Slow
+          colors:
+            - state: true
+              duration: 1s
+            - state: false
+              duration: 1s
+      - strobe:
+          name: Strobe Fast
+          colors:
+            - state: true
+              duration: 100ms
+            - state: false
+              duration: 100ms
+  - platform: dummy_light
+    id: dummy_green
+    name: LED Green
+    icon: mdi:radiobox-marked
+    effects:
+      - strobe:
+          name: Strobe Slow
+          colors:
+            - state: true
+              duration: 1s
+            - state: false
+              duration: 1s
+      - strobe:
+          name: Strobe Fast
+          colors:
+            - state: true
+              duration: 100ms
+            - state: false
+              duration: 100ms
+    on_state:
+      - lambda: |-
+          auto state = id(dummy_green).current_values;
+          auto call = id(led_green).make_call();
+          call.from_light_color_values(state);
+          if (state.is_on()) {
+              id(led_red).turn_off().perform();
+              id(led_blue).turn_off().perform();
+              id(dummy_red).turn_off().perform();
+              id(dummy_blue).turn_off().perform();
+              call.set_effect(id(dummy_green).get_effect_name());
+          }
+          if (!id(status_led_active)) {
+              call.perform();
+          }
+  - platform: binary
+    id: led_blue
+    output: led_blue_output
+    effects:
+      - strobe:
+          name: Strobe Slow
+          colors:
+            - state: true
+              duration: 1s
+            - state: false
+              duration: 1s
+      - strobe:
+          name: Strobe Fast
+          colors:
+            - state: true
+              duration: 100ms
+            - state: false
+              duration: 100ms
+  - platform: dummy_light
+    id: dummy_blue
+    name: LED Blue
+    icon: mdi:radiobox-marked
+    effects:
+      - strobe:
+          name: Strobe Slow
+          colors:
+            - state: true
+              duration: 1s
+            - state: false
+              duration: 1s
+      - strobe:
+          name: Strobe Fast
+          colors:
+            - state: true
+              duration: 100ms
+            - state: false
+              duration: 100ms
+    on_state:
+      - lambda: |-
+          auto state = id(dummy_blue).current_values;
+          auto call = id(led_blue).make_call();
+          call.from_light_color_values(state);
+          if (state.is_on()) {
+              id(led_red).turn_off().perform();
+              id(led_green).turn_off().perform();
+              id(dummy_red).turn_off().perform();
+              id(dummy_green).turn_off().perform();
+              call.set_effect(id(dummy_blue).get_effect_name());
+          }
+          if (!id(status_led_active)) {
+              call.perform();
+          }
 
 binary_sensor:
-    - platform: gpio
-      id: toggle_button
-      pin:
-          number: $PIN_BUTTON
-          mode: INPUT_PULLDOWN
-      filters:
-          - delayed_on_off: 50ms
-      on_press:
-          then:
-              - light.turn_on:
-                    id: dummy_green
-      on_release:
-          then:
-              - light.turn_off:
-                    id: dummy_green
-      on_multi_click:
-          - timing:
-                - OFF for at least 100ms
-                - ON for at least 10s
-            then:
-                - cover.toggle: water_valve
-          - timing:
-                - OFF for at least 100ms
-                - ON for 1s to 2s
-                - OFF for at least 50ms
-            then:
-                - cover.stop: water_valve
+  - platform: gpio
+    id: toggle_button
+    pin:
+      number: $PIN_BUTTON
+      mode: INPUT_PULLDOWN
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - light.turn_on:
+            id: dummy_green
+    on_release:
+      then:
+        - light.turn_off:
+            id: dummy_green
+    on_multi_click:
+      - timing:
+          - OFF for at least 100ms
+          - ON for at least 10s
+        then:
+          - cover.toggle: water_valve
+      - timing:
+          - OFF for at least 100ms
+          - ON for 1s to 2s
+          - OFF for at least 50ms
+        then:
+          - cover.stop: water_valve
 
 sensor:
-    - platform: ads1115
-      name: Water Pressure 1
-      update_interval: $ADS1115_UPDATE_INTERVAL
-      multiplexer: A0_GND
-      gain: $ADS1115_GAIN
-      device_class: pressure
-      icon: mdi:gauge
-      accuracy_decimals: 1
-      filters:
-          - exponential_moving_average:
-                alpha: 0.5
-                send_every: 30
-          - calibrate_linear:
-                - $PSI1_ZERO_VALUE -> 0
-                - $PSI1_LOAD_VALUE -> $PSI1_LOAD_PRESSURE
-          - clamp:
-                min_value: 0
-      unit_of_measurement: psi
-      on_raw_value:
-          then:
-              lambda: |
-                  ESP_LOGD("ads1115", "PSI_1 Raw = %.0f", x);
-      on_value:
-          then:
-              lambda: |
-                  ESP_LOGD("ads1115", "PSI_1 Val = %.3f psi", x);
-    - platform: ads1115
-      name: Water Pressure 2
-      update_interval: $ADS1115_UPDATE_INTERVAL
-      multiplexer: A1_GND
-      gain: $ADS1115_GAIN
-      device_class: pressure
-      icon: mdi:gauge
-      accuracy_decimals: 1
-      filters:
-          - exponential_moving_average:
-                alpha: 0.5
-                send_every: 30
-          - calibrate_linear:
-                - $PSI2_ZERO_VALUE -> 0
-                - $PSI2_LOAD_VALUE -> $PSI2_LOAD_PRESSURE
-          - clamp:
-                min_value: 0
-      unit_of_measurement: psi
-      on_raw_value:
-          then:
-              lambda: |
-                  ESP_LOGD("ads1115", "PSI_2 Raw = %.0f", x);
-      on_value:
-          then:
-              lambda: |
-                  ESP_LOGD("ads1115", "PSI_2 Val = %.3f psi", x);
-    - platform: ads1115
-      name: Water Pressure 3
-      update_interval: $ADS1115_UPDATE_INTERVAL
-      multiplexer: A2_GND
-      gain: $ADS1115_GAIN
-      device_class: pressure
-      icon: mdi:gauge
-      accuracy_decimals: 1
-      filters:
-          - exponential_moving_average:
-                alpha: 0.5
-                send_every: 30
-          - calibrate_linear:
-                - $PSI3_ZERO_VALUE -> 0
-                - $PSI3_LOAD_VALUE -> $PSI3_LOAD_PRESSURE
-          - clamp:
-                min_value: 0
-      unit_of_measurement: psi
-      on_raw_value:
-          then:
-              lambda: |
-                  ESP_LOGD("ads1115", "PSI_3 Raw = %.0f", x);
-      on_value:
-          then:
-              lambda: |
-                  ESP_LOGD("ads1115", "PSI_3 Val = %.3f psi", x);
-    - platform: hx711
-      name: Salt Weight
-      update_interval: $HX711_UPDATE_INTERVAL
-      dout_pin: $PIN_HX711_DOUT
-      clk_pin: $PIN_HX711_CLK
-      gain: 128
-      accuracy_decimals: 1
-      filters:
-          - exponential_moving_average:
-                alpha: 0.5
-                send_every: 30
-          - calibrate_linear:
-                - $HX711_ZERO_VALUE -> 0
-                - $HX711_LOAD_VALUE -> $HX711_LOAD_WEIGHT
-          - clamp:
-                min_value: 0
-      unit_of_measurement: lb
-      on_raw_value:
-          then:
-              lambda: |
-                  ESP_LOGD("hx711", "Salt Raw = %.0f", x);
-      on_value:
-          then:
-              lambda: |
-                  ESP_LOGD("hx711", "Salt Val = %.3f lb", x);
+  - platform: ads1115
+    name: Water Pressure 1
+    update_interval: $ADS1115_UPDATE_INTERVAL
+    multiplexer: A0_GND
+    gain: $ADS1115_GAIN
+    device_class: pressure
+    icon: mdi:gauge
+    accuracy_decimals: 1
+    filters:
+      - exponential_moving_average:
+          alpha: 0.5
+          send_every: 30
+      - calibrate_linear:
+          - $PSI1_ZERO_VALUE -> 0
+          - $PSI1_LOAD_VALUE -> $PSI1_LOAD_PRESSURE
+      - clamp:
+          min_value: 0
+    unit_of_measurement: psi
+    on_raw_value:
+      then:
+        lambda: |
+          ESP_LOGD("ads1115", "PSI_1 Raw = %.0f", x);
+    on_value:
+      then:
+        lambda: |
+          ESP_LOGD("ads1115", "PSI_1 Val = %.3f psi", x);
+  - platform: ads1115
+    name: Water Pressure 2
+    update_interval: $ADS1115_UPDATE_INTERVAL
+    multiplexer: A1_GND
+    gain: $ADS1115_GAIN
+    device_class: pressure
+    icon: mdi:gauge
+    accuracy_decimals: 1
+    filters:
+      - exponential_moving_average:
+          alpha: 0.5
+          send_every: 30
+      - calibrate_linear:
+          - $PSI2_ZERO_VALUE -> 0
+          - $PSI2_LOAD_VALUE -> $PSI2_LOAD_PRESSURE
+      - clamp:
+          min_value: 0
+    unit_of_measurement: psi
+    on_raw_value:
+      then:
+        lambda: |
+          ESP_LOGD("ads1115", "PSI_2 Raw = %.0f", x);
+    on_value:
+      then:
+        lambda: |
+          ESP_LOGD("ads1115", "PSI_2 Val = %.3f psi", x);
+  - platform: ads1115
+    name: Water Pressure 3
+    update_interval: $ADS1115_UPDATE_INTERVAL
+    multiplexer: A2_GND
+    gain: $ADS1115_GAIN
+    device_class: pressure
+    icon: mdi:gauge
+    accuracy_decimals: 1
+    filters:
+      - exponential_moving_average:
+          alpha: 0.5
+          send_every: 30
+      - calibrate_linear:
+          - $PSI3_ZERO_VALUE -> 0
+          - $PSI3_LOAD_VALUE -> $PSI3_LOAD_PRESSURE
+      - clamp:
+          min_value: 0
+    unit_of_measurement: psi
+    on_raw_value:
+      then:
+        lambda: |
+          ESP_LOGD("ads1115", "PSI_3 Raw = %.0f", x);
+    on_value:
+      then:
+        lambda: |
+          ESP_LOGD("ads1115", "PSI_3 Val = %.3f psi", x);
+  - platform: hx711
+    name: Salt Weight
+    update_interval: $HX711_UPDATE_INTERVAL
+    dout_pin: $PIN_HX711_DOUT
+    clk_pin: $PIN_HX711_CLK
+    gain: 128
+    accuracy_decimals: 1
+    filters:
+      - exponential_moving_average:
+          alpha: 0.5
+          send_every: 30
+      - calibrate_linear:
+          - $HX711_ZERO_VALUE -> 0
+          - $HX711_LOAD_VALUE -> $HX711_LOAD_WEIGHT
+      - clamp:
+          min_value: 0
+    unit_of_measurement: lb
+    on_raw_value:
+      then:
+        lambda: |
+          ESP_LOGD("hx711", "Salt Raw = %.0f", x);
+    on_value:
+      then:
+        lambda: |
+          ESP_LOGD("hx711", "Salt Val = %.3f lb", x);
 
 cover:
-    - platform: template
-      name: "Water Valve"
-      id: water_valve
-      device_class: damper
-      optimistic: true
-      open_action:
-          - light.turn_on:
-                id: dummy_blue
-                effect: Strobe Slow
-          - output.turn_off: motor_reverse
-          - output.turn_on: motor_forward
-          - delay: $TIME_MOTOR_ON
-          - output.turn_off: motor_forward
-          - output.turn_off: motor_reverse
-          - light.turn_off:
-                id: dummy_blue
-      close_action:
-          - light.turn_on:
-                id: dummy_blue
-                effect: Strobe Fast
-          - output.turn_off: motor_forward
-          - output.turn_on: motor_reverse
-          - delay: $TIME_MOTOR_ON
-          - output.turn_off: motor_forward
-          - output.turn_off: motor_reverse
-          - light.turn_off:
-                id: dummy_blue
-      stop_action:
-          - light.turn_on:
-                id: dummy_blue
-          - output.turn_off: motor_forward
-          - output.turn_off: motor_reverse
-          - delay: 3s
-          - light.turn_off:
-                id: dummy_blue
+  - platform: template
+    name: "Water Valve"
+    id: water_valve
+    device_class: damper
+    optimistic: true
+    open_action:
+      - light.turn_on:
+          id: dummy_blue
+          effect: Strobe Slow
+      - output.turn_off: motor_reverse
+      - output.turn_on: motor_forward
+      - delay: $TIME_MOTOR_ON
+      - output.turn_off: motor_forward
+      - output.turn_off: motor_reverse
+      - light.turn_off:
+          id: dummy_blue
+    close_action:
+      - light.turn_on:
+          id: dummy_blue
+          effect: Strobe Fast
+      - output.turn_off: motor_forward
+      - output.turn_on: motor_reverse
+      - delay: $TIME_MOTOR_ON
+      - output.turn_off: motor_forward
+      - output.turn_off: motor_reverse
+      - light.turn_off:
+          id: dummy_blue
+    stop_action:
+      - light.turn_on:
+          id: dummy_blue
+      - output.turn_off: motor_forward
+      - output.turn_off: motor_reverse
+      - delay: 3s
+      - light.turn_off:
+          id: dummy_blue
