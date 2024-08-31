@@ -50,6 +50,7 @@ sensor:
   - platform: uptime
     id: uptime_raw
     update_interval: 60s
+    type: seconds
     on_raw_value:
       then:
         - text_sensor.template.publish:
