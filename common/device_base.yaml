@@ -29,6 +29,7 @@ logger:
 api:
 
 ota:
+  platform: esphome
 
 button:
   - platform: restart
