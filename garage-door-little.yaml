@@ -1,0 +1,13 @@
+
+packages:
+  device_base: !include common/ratgdo.yaml
+
+substitutions:
+  NODE_NAME: garage-door-little
+  FRIENDLY_NAME: Little Garage Door
+
+# Pin D4 (GPIO2) is used for UART tx
+# status_led:
+#   pin:
+#     number: D4
+#     inverted: yes
