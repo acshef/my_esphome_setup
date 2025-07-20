@@ -30,9 +30,25 @@ safe_mode: !remove
 ota:
   - id: !remove ${id_prefix}_ratgdo_ota_ws
 
+binary_sensor:
+  - id: !extend ${id_prefix}_motion
+    disabled_by_default: true
+  - id: !extend ${id_prefix}_button
+    disabled_by_default: true
+  - id: !extend ${id_prefix}_motor
+    disabled_by_default: true
+  - id: !extend ${id_prefix}_dry_contact_open
+    disabled_by_default: true
+  - id: !extend ${id_prefix}_dry_contact_close
+    disabled_by_default: true
+  - id: !extend ${id_prefix}_dry_contact_light
+    disabled_by_default: true
+
 button:
   - id: !remove ${id_prefix}_restart
   - id: !remove ${id_prefix}_safe_mode
+  - id: !extend ${id_prefix}_toggle_door
+    disabled_by_default: true
 
 text_sensor:
   - id: !remove ${id_prefix}_firmware_version
