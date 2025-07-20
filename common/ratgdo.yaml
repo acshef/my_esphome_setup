@@ -1,214 +1,38 @@
+
+# Based loosely on https://github.com/ratgdo/esphome-ratgdo/blob/main/static/v2board_esp8266_d1_mini.yaml
+
 packages:
   device_base: !include device_base.yaml
-
-substitutions:
-  # NODE_NAME
-  # FRIENDLY_NAME
-  # BOARD: d1_mini
-  PIN_UART_RX: D4
-  PIN_UART_TX: D2
-  PIN_OBST: D7
-  RATGDO_ID: ratgdov2
+  remote_package:
+    url: https://github.com/ratgdo/esphome-ratgdo
+    files: [base.yaml]
+    ref: main
+    refresh: 15min
 
 esp8266:
   board: d1_mini
+  restore_from_flash: true
 
-#mqtt:
-#    broker: 10.0.0.100
-#    username: !secret mqtt_username
-#    password: !secret mqtt_password
-#    discovery: false
-#    log_topic: null
+substitutions:
+  id_prefix: ratgdov2
+  friendly_name: $FRIENDLY_NAME
+  uart_tx_pin: D4
+  uart_rx_pin: D2
+  input_obst_pin: D7
+  status_door_pin: D0
+  status_obstruction_pin: D8
+  dry_contact_open_pin: D5
+  dry_contact_close_pin: D6
+  dry_contact_light_pin: D3
 
-globals:
-  - id: synced_rolling_code_counter
-    type: bool
-    initial_value: "false"
-  - id: synced_opening_duration
-    type: bool
-    initial_value: "false"
-  - id: synced_closing_duration
-    type: bool
-    initial_value: "false"
+safe_mode: !remove
 
-external_components:
-  - source: github://ratgdo/esphome-ratgdo
-    refresh: 1h
-
-#ratgdo:
-#    id: $RATGDO_ID
-#    input_gdo_pin: $PIN_UART_RX
-#    output_gdo_pin: $PIN_UART_TX
-#    input_obst_pin: $PIN_OBST
-#    # remote_id: 0x539 # Default is 0x539
-#    on_sync_failed:
-#        then:
-#            - homeassistant.service:
-#                  service: persistent_notification.create
-#                  data:
-#                      title: "$FRIENDLY_NAME Sync failed"
-#                      message: "Failed to communicate with garage opener on startup; check the $FRIENDLY_NAME Rolling code counter number entity history and set the entity to one number larger than the largest value in history. [ESPHome devices](/config/devices/dashboard?domain=esphome)"
-#                      notification_id: "esphome_ratgdo_${NODE_NAME}_sync_failed"
-
-sensor:
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      type: openings
-#      entity_category: diagnostic
-#      name: Openings
-#      unit_of_measurement: openings
-#      icon: mdi:open-in-app
-#    - platform: mqtt_subscribe
-#      id: mqtt_rolling_code_counter
-#      topic: esphome/${NODE_NAME}/rolling_code_counter
-#      accuracy_decimals: 0
-#      on_value:
-#          - lambda: |-
-#                if (id(rolling_code_counter).state != x) {
-#                    ESP_LOGD("rolling_code_counter", "Syncing rolling code counter %.0f", x);
-#                    id(rolling_code_counter).publish_state(x);
-#                }
-#                id(synced_rolling_code_counter) = true;
-#    - platform: mqtt_subscribe
-#      id: mqtt_opening_duration
-#      topic: esphome/${NODE_NAME}/opening_duration
-#      accuracy_decimals: 1
-#      on_value:
-#          - lambda: |-
-#                if (id(opening_duration).state != x) {
-#                    ESP_LOGD("opening_duration", "Syncing opening duration %.1f", x);
-#                    id(opening_duration).publish_state(x);
-#                }
-#                id(synced_opening_duration) = true;
-#    - platform: mqtt_subscribe
-#      id: mqtt_closing_duration
-#      topic: esphome/${NODE_NAME}/closing_duration
-#      accuracy_decimals: 1
-#      on_value:
-#          - lambda: |-
-#                if (id(closing_duration).state != x) {
-#                    ESP_LOGD("closing_duration", "Syncing closing duration %.1f", x);
-#                    id(closing_duration).publish_state(x);
-#                }
-#                id(synced_closing_duration) = true;
-
-switch:
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      type: lock
-#      entity_category: config
-#      name: "Lock remotes"
-
-binary_sensor:
-  # - platform: ratgdo
-  #   ratgdo_id: $RATGDO_ID
-  #   type: motion
-  #   name: Motion
-  #   device_class: motion
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      type: obstruction
-#      name: Obstruction
-#      device_class: problem
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      type: button
-#      name: Button
-#      entity_category: diagnostic
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      type: motor
-#      name: Motor
-#      device_class: running
-#      entity_category: diagnostic
-
-number:
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      type: rolling_code_counter
-#      name: Rolling Code Counter
-#      id: rolling_code_counter
-#      entity_category: config
-#      on_value:
-#          - if:
-#                condition:
-#                    lambda: "return id(synced_rolling_code_counter);"
-#                then:
-#                    - mqtt.publish:
-#                          topic: esphome/${NODE_NAME}/rolling_code_counter
-#                          retain: true
-#                          payload: !lambda |-
-#                              char buf[20];
-#                              sprintf(buf, "%.0f", x);
-#                              return ((std::string) buf).c_str();
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      type: opening_duration
-#      id: opening_duration
-#      entity_category: config
-#      unit_of_measurement: "s"
-#      on_value:
-#          - if:
-#                condition:
-#                    lambda: "return id(synced_opening_duration);"
-#                then:
-#                    - mqtt.publish:
-#                          topic: esphome/${NODE_NAME}/opening_duration
-#                          retain: true
-#                          payload: !lambda |-
-#                              char buf[20];
-#                              sprintf(buf, "%.1f", x);
-#                              return ((std::string) buf).c_str();
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      type: closing_duration
-#      id: closing_duration
-#      entity_category: config
-#      unit_of_measurement: "s"
-#      on_value:
-#          - if:
-#                condition:
-#                    lambda: "return id(synced_closing_duration);"
-#                then:
-#                    - mqtt.publish:
-#                          topic: esphome/${NODE_NAME}/closing_duration
-#                          retain: true
-#                          payload: !lambda |-
-#                              char buf[20];
-#                              sprintf(buf, "%.1f", x);
-#                              return ((std::string) buf).c_str();
-
-cover:
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      device_class: garage
-#      name: Door
-
-light:
-#    - platform: ratgdo
-#      ratgdo_id: $RATGDO_ID
-#      name: Light
+ota:
+  - id: !remove ${id_prefix}_ratgdo_ota_ws
 
 button:
-#    - platform: template
-#      entity_category: diagnostic
-#      name: Query status
-#      on_press:
-#          then:
-#              lambda: "id($RATGDO_ID).query_status();"
-#    - platform: template
-#      name: Query openings
-#      entity_category: diagnostic
-#      on_press:
-#          then:
-#              lambda: "id($RATGDO_ID).query_openings();"
-#    - platform: template
-#      name: Sync
-#      entity_category: diagnostic
-#      on_press:
-#          then:
-#              lambda: "id($RATGDO_ID).sync();"
-# status_led:
-#     pin:
-#         number: D4
-#         inverted: yes
+  - id: !remove ${id_prefix}_restart
+  - id: !remove ${id_prefix}_safe_mode
+
+text_sensor:
+  - id: !remove ${id_prefix}_firmware_version
