@@ -29,6 +29,11 @@ logger:
 # Enable Home Assistant API
 api:
 
+# https://esphome.io/components/time/homeassistant
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
 ota:
   platform: esphome
 
