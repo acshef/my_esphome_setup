@@ -8,6 +8,15 @@ substitutions:
   NODE_NAME: bug-zapper
   FRIENDLY_NAME: Bug Zapper
 
+globals:
+  - id: switch_enabled
+    type: bool
+    initial_value: "true"
+    restore_value: true
+  - id: relay_on
+    type: bool
+    initial_value: "false"
+
 binary_sensor:
   - platform: gpio
     id: physical_button
@@ -19,7 +28,8 @@ binary_sensor:
       - delayed_on_off: 50ms
     on_press:
       then:
-        - switch.toggle: relay
+        - delay: 1 sec
+        - switch.toggle: zapper
   - platform: gpio
     id: internal_button
     pin:
@@ -33,18 +43,49 @@ binary_sensor:
           - ON for at most 5s
           - OFF for at least 0.1s
         then:
-          - switch.toggle: relay
+          - switch.toggle: zapper
       - timing:
           - ON for at least 10s
           - OFF for at least 0.1s
         then:
           - button.press: restart_button
-switch:
+
+output:
   - platform: gpio
+    pin: GPIO12
     id: relay
+
+switch:
+  # - platform: gpio
+  #   id: relay_old
+  #   name: Bug Zapper
+  #   icon: mdi:shield-bug-outline
+  #   pin: GPIO12
+  - platform: template
+    name: Enabled
+    entity_category: config
+    restore_mode: DISABLED
+    lambda: "return id(switch_enabled);"
+    turn_on_action:
+      - lambda: "id(switch_enabled) = true;"
+    turn_off_action:
+      - lambda: "id(switch_enabled) = false;"
+      - switch.turn_off: zapper
+  - platform: template
+    id: zapper
     name: Bug Zapper
     icon: mdi:shield-bug-outline
-    pin: GPIO12
+    lambda: "return id(relay_on);"
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return id(switch_enabled);"
+          then:
+            - lambda: "id(relay_on) = true;"
+            - output.turn_on: relay
+    turn_off_action:
+      - lambda: "id(relay_on) = false;"
+      - output.turn_off: relay
 
 status_led:
   pin:
