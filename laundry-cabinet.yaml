@@ -1,0 +1,107 @@
+# Flashing a Shelly RGBW2 with crocodile clips and cut resistor leads
+# https://koen.vervloesem.eu/blog/flashing-a-shelly-rgbw2-with-crocodile-clips-and-cut-resistor-leads/
+# https://web.archive.org/web/20240823155517/https://koen.vervloesem.eu/blog/flashing-a-shelly-rgbw2-with-crocodile-clips-and-cut-resistor-leads/
+
+# https://kb.shelly.cloud/__attachments/243531777/image-20220912-074127.png
+
+packages:
+  device_base: !include common/device_base.yaml
+
+esp8266:
+  board: esp01_1m
+
+substitutions:
+  NODE_NAME: laundry-cabinet
+  FRIENDLY_NAME: Laundry Cabinet
+  LOG_LEVEL: INFO
+  MIN_POWER: "0.0"
+  MAX_POWER: "1.0"
+  FREQUENCY: 1000 Hz
+
+output:
+  - platform: esp8266_pwm # RED
+    id: out_ch1
+    pin: GPIO12
+    frequency: $FREQUENCY
+    min_power: $MIN_POWER
+    max_power: $MAX_POWER
+    zero_means_zero: True
+  - platform: esp8266_pwm # GREEEN
+    id: out_ch2
+    pin: GPIO15
+    frequency: $FREQUENCY
+    min_power: $MIN_POWER
+    max_power: $MAX_POWER
+    zero_means_zero: True
+  - platform: esp8266_pwm # BLUE
+    id: out_ch3
+    pin: GPIO14
+    frequency: $FREQUENCY
+    min_power: $MIN_POWER
+    max_power: $MAX_POWER
+    zero_means_zero: True
+  - platform: esp8266_pwm # WHITE
+    id: out_ch4
+    pin: GPIO4
+    frequency: $FREQUENCY
+    min_power: $MIN_POWER
+    max_power: $MAX_POWER
+    zero_means_zero: True
+
+light:
+  - platform: monochromatic # RED
+    name: Channel 1
+    id: ch1
+    output: out_ch1
+  - platform: monochromatic # GREEN
+    name: Channel 2
+    id: ch2
+    output: out_ch2
+  - platform: monochromatic # BLUE
+    internal: True
+    name: Channel 3
+    id: ch3
+    output: out_ch3
+  - platform: monochromatic # WHITE
+    internal: True
+    name: Channel 4
+    id: ch4
+    output: out_ch4
+
+binary_sensor:
+  - platform: gpio
+    internal: True
+    pin: GPIO5
+    name: Button
+    filters:
+      - delayed_on_off: 50ms
+    on_multi_click:
+      - timing:
+          - ON for at most 5s
+          - OFF for at least 0.1s
+        then:
+          - if:
+              condition:
+                or:
+                  - light.is_on: ch1
+                  - light.is_on: ch2
+              then:
+                - light.turn_off: ch1
+                - light.turn_off: ch2
+                - light.turn_off: ch3
+                - light.turn_off: ch4
+              else:
+                - light.turn_on:
+                    id: ch1
+                    brightness: 100%
+                - light.turn_on:
+                    id: ch2
+                    brightness: 100%
+      - timing:
+          - ON for at least 10s
+          - OFF for at least 0.1s
+        then:
+          - button.press: restart_button
+
+status_led:
+  pin: GPIO2
