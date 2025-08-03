@@ -13,10 +13,10 @@ esp8266:
 substitutions:
   NODE_NAME: laundry-cabinet
   FRIENDLY_NAME: Laundry Cabinet
-  LOG_LEVEL: INFO
-  MIN_POWER: "0.0"
+  MIN_POWER: "0.0005"
   MAX_POWER: "1.0"
   FREQUENCY: 1000 Hz
+  GAMMA_CORRECT: 3.5 # ESPHome default gamma correction is 2.8
 
 output:
   - platform: esp8266_pwm # RED
@@ -53,20 +53,24 @@ light:
     name: Channel 1
     id: ch1
     output: out_ch1
+    gamma_correct: $GAMMA_CORRECT
   - platform: monochromatic # GREEN
     name: Channel 2
     id: ch2
     output: out_ch2
+    gamma_correct: $GAMMA_CORRECT
   - platform: monochromatic # BLUE
     internal: True
     name: Channel 3
     id: ch3
     output: out_ch3
+    gamma_correct: $GAMMA_CORRECT
   - platform: monochromatic # WHITE
     internal: True
     name: Channel 4
     id: ch4
     output: out_ch4
+    gamma_correct: $GAMMA_CORRECT
 
 binary_sensor:
   - platform: gpio
