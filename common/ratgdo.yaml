@@ -1,4 +1,3 @@
-
 # Based loosely on https://github.com/ratgdo/esphome-ratgdo/blob/main/static/v2board_esp8266_d1_mini.yaml
 
 packages:
@@ -49,6 +48,14 @@ button:
   - id: !remove ${id_prefix}_safe_mode
   - id: !extend ${id_prefix}_toggle_door
     disabled_by_default: true
+
+sensor:
+  - id: !extend ${id_prefix}_openings
+    state_class: measurement
+    accuracy_decimals: 0
+  - id: !extend ${id_prefix}_paired_devices_total
+    state_class: measurement
+    accuracy_decimals: 0
 
 text_sensor:
   - id: !remove ${id_prefix}_firmware_version
