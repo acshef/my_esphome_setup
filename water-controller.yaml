@@ -70,20 +70,20 @@ substitutions:
   ADS1115_ADDR: "0x48"
   ADS1115_GAIN: "4.096"
   ADS1115_UPDATE_INTERVAL: "1s"
-  PSI1_ZERO_VALUE: "0.0"
-  PSI1_LOAD_VALUE: "1000"
-  PSI1_LOAD_PRESSURE: "45" # psi
-  PSI2_ZERO_VALUE: "0.0"
-  PSI2_LOAD_VALUE: "1000"
-  PSI2_LOAD_PRESSURE: "45" # psi
-  PSI3_ZERO_VALUE: "0.0"
-  PSI3_LOAD_VALUE: "1000"
-  PSI3_LOAD_PRESSURE: "45" # psi
+  PSI1_ZERO_VALUE: "0.3370"
+  PSI1_LOAD_VALUE: "0.9925"
+  PSI1_LOAD_PRESSURE: "43.50" # psi
+  PSI2_ZERO_VALUE: "0.3310"
+  PSI2_LOAD_VALUE: "0.9655"
+  PSI2_LOAD_PRESSURE: "43.50" # psi
+  PSI3_ZERO_VALUE: "0.3310"
+  PSI3_LOAD_VALUE: "0.9725"
+  PSI3_LOAD_PRESSURE: "44.75" # psi
   HX711_ZERO_VALUE: "115250"
   HX711_LOAD_VALUE: "1798000"
   HX711_LOAD_WEIGHT: "150" # lbs
   HX711_UPDATE_INTERVAL: "1s"
-  LOG_LEVEL: INFO
+  # LOG_LEVEL: INFO
   PIN_BUTTON: GPIO19
   PIN_LED_RED: GPIO32
   PIN_LED_GREEN: GPIO33
@@ -289,29 +289,30 @@ binary_sensor:
       mode: INPUT_PULLDOWN
     filters:
       - delayed_on_off: 50ms
-    on_press:
-      then:
-        - light.turn_on:
-            id: dummy_green
-    on_release:
-      then:
-        - light.turn_off:
-            id: dummy_green
     on_multi_click:
+      - timing:
+          - ON for at least 0s
+        then:
+          - light.turn_on: dummy_green
+      - timing:
+          - OFF for at least 0s
+        then:
+          - light.turn_off: dummy_green
       - timing:
           - OFF for at least 100ms
           - ON for at least 10s
         then:
-          - cover.toggle: water_valve
+          - valve.toggle: water_valve
       - timing:
           - OFF for at least 100ms
           - ON for 1s to 2s
           - OFF for at least 50ms
         then:
-          - cover.stop: water_valve
+          - valve.stop: water_valve
 
 sensor:
   - platform: ads1115
+    id: psi_1
     name: Water Pressure 1
     update_interval: $ADS1115_UPDATE_INTERVAL
     multiplexer: A0_GND
@@ -320,24 +321,26 @@ sensor:
     icon: mdi:gauge
     accuracy_decimals: 1
     filters:
-      - exponential_moving_average:
-          alpha: 0.5
-          send_every: 30
+      - median:
+          window_size: 9
+          send_every: 10
       - calibrate_linear:
           - $PSI1_ZERO_VALUE -> 0
           - $PSI1_LOAD_VALUE -> $PSI1_LOAD_PRESSURE
       - clamp:
           min_value: 0
+      - delta: 0.1
     unit_of_measurement: psi
     on_raw_value:
       then:
         lambda: |
-          ESP_LOGD("ads1115", "PSI_1 Raw = %.0f", x);
+          ESP_LOGI("ads1115", "PSI_1 Raw = %.3f", x);
     on_value:
       then:
         lambda: |
-          ESP_LOGD("ads1115", "PSI_1 Val = %.3f psi", x);
+          ESP_LOGI("ads1115", "PSI_1 Val = %.1f psi", x);
   - platform: ads1115
+    id: psi_2
     name: Water Pressure 2
     update_interval: $ADS1115_UPDATE_INTERVAL
     multiplexer: A1_GND
@@ -346,24 +349,26 @@ sensor:
     icon: mdi:gauge
     accuracy_decimals: 1
     filters:
-      - exponential_moving_average:
-          alpha: 0.5
-          send_every: 30
+      - median:
+          window_size: 9
+          send_every: 10
       - calibrate_linear:
           - $PSI2_ZERO_VALUE -> 0
           - $PSI2_LOAD_VALUE -> $PSI2_LOAD_PRESSURE
       - clamp:
           min_value: 0
+      - delta: 0.1
     unit_of_measurement: psi
     on_raw_value:
       then:
         lambda: |
-          ESP_LOGD("ads1115", "PSI_2 Raw = %.0f", x);
+          ESP_LOGI("ads1115", "PSI_2 Raw =         %.3f", x);
     on_value:
       then:
         lambda: |
-          ESP_LOGD("ads1115", "PSI_2 Val = %.3f psi", x);
+          ESP_LOGI("ads1115", "PSI_2 Val = %.1f psi", x);
   - platform: ads1115
+    id: psi_3
     name: Water Pressure 3
     update_interval: $ADS1115_UPDATE_INTERVAL
     multiplexer: A2_GND
@@ -372,23 +377,40 @@ sensor:
     icon: mdi:gauge
     accuracy_decimals: 1
     filters:
-      - exponential_moving_average:
-          alpha: 0.5
-          send_every: 30
+      - median:
+          window_size: 9
+          send_every: 10
       - calibrate_linear:
           - $PSI3_ZERO_VALUE -> 0
           - $PSI3_LOAD_VALUE -> $PSI3_LOAD_PRESSURE
       - clamp:
           min_value: 0
+      - delta: 0.1
     unit_of_measurement: psi
     on_raw_value:
       then:
         lambda: |
-          ESP_LOGD("ads1115", "PSI_3 Raw = %.0f", x);
+          ESP_LOGI("ads1115", "PSI_3 Raw =                 %.3f", x);
     on_value:
       then:
         lambda: |
-          ESP_LOGD("ads1115", "PSI_3 Val = %.3f psi", x);
+          ESP_LOGI("ads1115", "PSI_3 Val = %.1f psi", x);
+  - platform: template
+    name: Pressure drop across pre-filter
+    device_class: pressure
+    icon: mdi:gauge
+    accuracy_decimals: 1
+    unit_of_measurement: psi
+    lambda: |-
+      return std::max(0.0f, id(psi_2).state - id(psi_1).state); // Prevent negatives
+  - platform: template
+    name: Pressure drop across softener
+    device_class: pressure
+    icon: mdi:gauge
+    accuracy_decimals: 1
+    unit_of_measurement: psi
+    lambda: |-
+      return std::max(0.0f, id(psi_3).state - id(psi_2).state); // Prevent negatives
   - platform: hx711
     name: Salt Weight
     update_interval: $HX711_UPDATE_INTERVAL
@@ -397,14 +419,15 @@ sensor:
     gain: 128
     accuracy_decimals: 1
     filters:
-      - exponential_moving_average:
-          alpha: 0.5
-          send_every: 30
+      - median:
+          window_size: 9
+          send_every: 10
       - calibrate_linear:
           - $HX711_ZERO_VALUE -> 0
           - $HX711_LOAD_VALUE -> $HX711_LOAD_WEIGHT
       - clamp:
           min_value: 0
+      - delta: 0.15
     unit_of_measurement: lb
     on_raw_value:
       then:
@@ -415,39 +438,69 @@ sensor:
         lambda: |
           ESP_LOGD("hx711", "Salt Val = %.3f lb", x);
 
-cover:
+valve:
   - platform: template
-    name: "Water Valve"
+    name: Water Valve
     id: water_valve
-    device_class: damper
-    optimistic: true
+    device_class: water
+    restore_mode: NO_RESTORE
+    optimistic: false
+    assumed_state: false
+    has_position: true
     open_action:
-      - light.turn_on:
-          id: dummy_blue
-          effect: Strobe Slow
-      - output.turn_off: motor_reverse
-      - output.turn_on: motor_forward
-      - delay: $TIME_MOTOR_ON
-      - output.turn_off: motor_forward
-      - output.turn_off: motor_reverse
-      - light.turn_off:
-          id: dummy_blue
+      - if:
+          condition:
+            lambda: |-
+              return id(water_valve).position < 1.0;
+          then:
+            - lambda: |-
+                id(water_valve).position = 0.5;
+                id(water_valve).current_operation = VALVE_OPERATION_OPENING;
+                id(water_valve).publish_state();
+            - light.turn_on:
+                id: dummy_blue
+                effect: Strobe Fast
+            - output.turn_off: motor_reverse
+            - output.turn_on: motor_forward
+            - delay: $TIME_MOTOR_ON
+            - output.turn_off: motor_reverse
+            - output.turn_off: motor_forward
+            - lambda: |-
+                id(water_valve).position = 1.0;
+                id(water_valve).current_operation = VALVE_OPERATION_IDLE;
+                id(water_valve).publish_state();
+            - light.turn_off:
+                id: dummy_blue
     close_action:
-      - light.turn_on:
-          id: dummy_blue
-          effect: Strobe Fast
-      - output.turn_off: motor_forward
-      - output.turn_on: motor_reverse
-      - delay: $TIME_MOTOR_ON
-      - output.turn_off: motor_forward
-      - output.turn_off: motor_reverse
-      - light.turn_off:
-          id: dummy_blue
+      - if:
+          condition:
+            lambda: |-
+              return id(water_valve).position > 0.0;
+          then:
+            - lambda: |-
+                id(water_valve).position = 0.5;
+                id(water_valve).current_operation = VALVE_OPERATION_CLOSING;
+                id(water_valve).publish_state();
+            - light.turn_on:
+                id: dummy_blue
+                effect: Strobe Fast
+            - output.turn_off: motor_forward
+            - output.turn_on: motor_reverse
+            - delay: $TIME_MOTOR_ON
+            - output.turn_off: motor_forward
+            - output.turn_off: motor_reverse
+            - lambda: |-
+                id(water_valve).position = 0.0;
+                id(water_valve).current_operation = VALVE_OPERATION_IDLE;
+                id(water_valve).publish_state();
+            - light.turn_off:
+                id: dummy_blue
     stop_action:
-      - light.turn_on:
-          id: dummy_blue
+      - light.turn_on: dummy_blue
       - output.turn_off: motor_forward
       - output.turn_off: motor_reverse
+      - lambda: |-
+          id(water_valve).current_operation = VALVE_OPERATION_IDLE;
+          id(water_valve).publish_state();
       - delay: 3s
-      - light.turn_off:
-          id: dummy_blue
+      - light.turn_off: dummy_blue
