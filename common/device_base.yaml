@@ -107,3 +107,5 @@ text_sensor:
     id: uptime_human
     icon: mdi:timer-outline
     entity_category: diagnostic
+    update_interval: never
+    lambda: 'return {"0s"};'
