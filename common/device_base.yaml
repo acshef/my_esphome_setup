@@ -3,6 +3,20 @@ esphome:
   name_add_mac_suffix: false
   friendly_name: $FRIENDLY_NAME
   build_path: .build/${NODE_NAME}/
+  on_boot:
+    - text_sensor.template.publish:
+        id: config_hash
+        state: !lambda |-
+          // PRIx32 is format conversion specifier to output an unsigned lowercase hexadecimal integer value of type
+          // See: https://en.cppreference.com/w/cpp/header/cinttypes.html
+          // If we wanted uppercase hex, we'd use "PRIX32" instead.
+          // This is equivalent to "x" for unsigned ints, but apparently it's safer to use this constant
+          // than to use a literal "x"
+          return str_sprintf("0x%08" PRIx32, App.get_config_hash());
+    - text_sensor.template.publish:
+        id: esp_version
+        state: !lambda |-
+          return {ESPHOME_VERSION};
 
 substitutions:
   # NODE_NAME
@@ -13,6 +27,7 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   fast_connect: true
+  post_connect_roaming: false
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "$NODE_NAME AP"
@@ -86,11 +101,21 @@ sensor:
               return (std::to_string(seconds) + "s").c_str();
 
 text_sensor:
-  - platform: version
-    id: esp_version
+  - platform: template
     name: ESPHome Version
-    hide_timestamp: True
+    icon: mdi:new-box
+    id: esp_version
     entity_category: diagnostic
+    update_interval: never
+    lambda: "return {};"
+  - platform: template
+    id: config_hash
+    name: Config Hash
+    disabled_by_default: true
+    icon: mdi:file-compare
+    entity_category: diagnostic
+    update_interval: never
+    lambda: "return {};"
   - platform: wifi_info
     ip_address:
       name: IP Address
