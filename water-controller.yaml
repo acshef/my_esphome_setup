@@ -32,7 +32,7 @@ esphome:
                   id(led_blue).turn_off().perform();
                   auto call = id(led_red).make_call();
                   call.from_light_color_values(state_red);
-                  call.set_effect(id(dummy_red).get_effect_name());
+                  call.set_effect(id(dummy_red).get_current_effect_index());
                   call.perform();
               } else if (state_green.is_on()) {
                   // Restore green light
@@ -40,7 +40,7 @@ esphome:
                   id(led_blue).turn_off().perform();
                   auto call = id(led_green).make_call();
                   call.from_light_color_values(state_green);
-                  call.set_effect(id(dummy_green).get_effect_name());
+                  call.set_effect(id(dummy_green).get_current_effect_index());
                   call.perform();
               } else if (state_blue.is_on()) {
                   // Restore blue light
@@ -48,7 +48,7 @@ esphome:
                   id(led_green).turn_off().perform();
                   auto call = id(led_blue).make_call();
                   call.from_light_color_values(state_blue);
-                  call.set_effect(id(dummy_blue).get_effect_name());
+                  call.set_effect(id(dummy_blue).get_current_effect_index());
                   call.perform();
               } else {
                   // No lights are on
@@ -171,7 +171,7 @@ light:
               id(led_blue).turn_off().perform();
               id(dummy_green).turn_off().perform();
               id(dummy_blue).turn_off().perform();
-              call.set_effect(id(dummy_red).get_effect_name());
+              call.set_effect(id(dummy_red).get_current_effect_index());
           }
           if (!id(status_led_active)) {
               call.perform();
@@ -223,7 +223,7 @@ light:
               id(led_blue).turn_off().perform();
               id(dummy_red).turn_off().perform();
               id(dummy_blue).turn_off().perform();
-              call.set_effect(id(dummy_green).get_effect_name());
+              call.set_effect(id(dummy_green).get_current_effect_index());
           }
           if (!id(status_led_active)) {
               call.perform();
@@ -275,7 +275,7 @@ light:
               id(led_green).turn_off().perform();
               id(dummy_red).turn_off().perform();
               id(dummy_green).turn_off().perform();
-              call.set_effect(id(dummy_blue).get_effect_name());
+              call.set_effect(id(dummy_blue).get_current_effect_index());
           }
           if (!id(status_led_active)) {
               call.perform();
