@@ -10,3 +10,6 @@
 /secrets.yaml
 **/__pycache__/
 !/.gitignore
+.device-builder.json
+.device-builder.json.lock
+.device-builder-peer-link-key.bin
