@@ -1,0 +1,167 @@
+# Warnings
+# ref https://devices.esphome.io/devices/sonoff-s31/
+# * `board: esp12e` is required to enable all 4MB of flash, allowing OTA updates to work after approximately version 2024.4.0
+# * `throttle_average: 60s` on cse7766 sensors is highly recommended with version 2024.2.0 or greater.
+# * `restore_mode: ALWAYS_OFF` avoids potential damage or instability when using the programmer's supply.
+#   * Once you’ve performed the initial installation using a programmer, you can set this to `RESTORE_DEFAULT_OFF` to make the device keep its state through power cycles.
+#     Only install firmware configured this way via OTA updates.
+#     You will also need to set restore_from_flash to true in the esp8266 block.
+# `web_server:` can cause instability due to the device’s slower ESP8266 processor
+
+packages:
+  device_base: !include common/device_base.yaml
+
+esp8266:
+  board: esp12e
+  early_pin_init: false
+
+substitutions:
+  NODE_NAME: battery-tender
+  FRIENDLY_NAME: Battery Tender
+  THROTTLE_TIME: 30s
+  POWER_LIMIT: 0.5 # Watts
+  CHARGING_IDLE_TIME: 60s
+
+globals:
+  - id: stay_on_value
+    type: bool
+    initial_value: "false"
+    restore_value: true
+  - id: last_relay_on_time
+    type: int
+    initial_value: "0"
+    restore_value: false
+  
+logger:
+  baud_rate: 0 # (UART logging interferes with cse7766)
+
+uart:
+  rx_pin: RX
+  baud_rate: 4800
+  parity: EVEN
+
+event:
+  - platform: template
+    id: my_event
+    name: Charging Done
+    icon: mdi:battery-check
+    event_types:
+      - charging_done
+
+binary_sensor:
+  # The cabinet door sensor is also tied to GPIO0.
+  # Unfortunately it is NC (normally closed) while the
+  # built-in side button is NO (normally open).
+  # This means the cabinet door must be closed
+  # (the button must be pressed) when booting this
+  # device or else it will enter bootloader mode.
+  #
+  # If the cabinet is closed (binary sensor turns off / is released),
+  # the relay should turn on.
+  # If the power consumption is less than X watts for Y seconds,
+  # the relay should turn off.
+  - platform: gpio
+    name: Cabinet
+    id: cabinet_door
+    device_class: opening
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: True
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 500ms
+    on_release:
+        then:
+          - switch.turn_on: relay
+    
+  - platform: template
+    id: done_charging
+    condition:
+      and:
+        - sensor.in_range:
+            id: my_power
+            below: $POWER_LIMIT
+        - binary_sensor.is_off: cabinet_door
+        - switch.is_on: relay
+        - switch.is_off: stay_on
+    filters:
+      - delayed_on: $CHARGING_IDLE_TIME
+    on_press:
+      then:
+        - if:
+            condition:
+              switch.is_on: relay
+            then:
+              - switch.turn_off: relay
+              - event.trigger:
+                  id: my_event
+                  event_type: charging_done
+              - homeassistant.event:
+                  event: esphome.battery_tender_done
+                  data_template:
+                    duration: "{{ duration }}"
+                  variables:
+                    duration: !lambda |-
+                      return (millis() - id(last_relay_on_time)) / 1000;
+sensor:
+  - platform: cse7766
+    current:
+      name: Current
+      accuracy_decimals: 2
+      filters:
+        - throttle_average: $THROTTLE_TIME
+    voltage:
+      name: Voltage
+      accuracy_decimals: 1
+      filters:
+        - throttle_average: $THROTTLE_TIME
+    power:
+      name: Power
+      accuracy_decimals: 1
+      id: my_power
+      filters:
+        - throttle_average: $THROTTLE_TIME
+    energy:
+      name: Energy
+      accuracy_decimals: 1
+      filters:
+        - throttle: $THROTTLE_TIME
+    apparent_power: #(only available with version 2024.3.0 or greater)
+      name: Apparent Power
+      filters:
+        - throttle_average: $THROTTLE_TIME
+    power_factor: #(only available with version 2024.3.0 or greater)
+      name: Power Factor
+      accuracy_decimals: 1
+      filters:
+        - throttle_average: $THROTTLE_TIME
+
+  - platform: total_daily_energy #(Optional, not specific to cse7766)
+    name: Daily Energy
+    power_id: my_power
+    accuracy_decimals: 2
+
+switch:
+  - platform: gpio
+    name: Relay
+    pin: GPIO12
+    id: relay
+    restore_mode: RESTORE_DEFAULT_OFF # Powering the relay may cause damage or instability when the programmer is supplying Vcc.
+    on_turn_on:
+      - lambda: "id(last_relay_on_time) = millis();"
+  - platform: template
+    id: stay_on
+    name: Stay On
+    entity_category: config
+    restore_mode: DISABLED
+    lambda: "return id(stay_on_value);"
+    turn_on_action:
+      - lambda: "id(stay_on_value) = true;"
+    turn_off_action:
+      - lambda: "id(stay_on_value) = false;"
+
+status_led:
+  pin:
+    number: GPIO13
+    inverted: yes
