@@ -1,0 +1,457 @@
+packages:
+  device_base: !include common/device_base.yaml
+
+esphome:
+  libraries:
+    - locoduino/RingBuffer
+  includes:
+    - <RingBuf.h>
+
+esp8266:
+  board: d1_mini
+
+substitutions:
+  NODE_NAME: washer-dryer
+  FRIENDLY_NAME: "Washer Dryer"
+  LOG_LEVEL: INFO
+  SENSOR_A: Dryer
+  SENSOR_B: Washing Machine
+
+globals:
+  - id: gravity
+    type: float
+    initial_value: "9.80665f"
+  - id: rb_accel_a_x
+    type: RingBuf<float, 1024>
+  - id: rb_accel_a_y
+    type: RingBuf<float, 1024>
+  - id: rb_accel_a_z
+    type: RingBuf<float, 1024>
+  - id: offset_accel_a_x
+    type: float
+  - id: offset_accel_a_x_done
+    type: bool
+    initial_value: "false"
+  - id: offset_accel_a_y
+    type: float
+  - id: offset_accel_a_y_done
+    type: bool
+    initial_value: "false"
+  - id: offset_accel_a_z
+    type: float
+  - id: offset_accel_a_z_done
+    type: bool
+    initial_value: "false"
+
+i2c:
+
+sensor:
+  # SENSOR A, Address 0x68, SA0=GND
+  - platform: my_bmi160
+    address: 0x68
+    update_interval: 10ms
+    acceleration_x:
+      id: accel_a_x
+      on_value:
+        then:
+          - lambda: |
+              auto rb = id(rb_accel_a_x);
+              rb.push(x);
+              float min_value;
+              float max_value;
+
+              if (rb.isFull()) {
+                min_value = rb[0];
+                max_value = rb[0];
+                for (int i=0; i<1024; i++) {
+                  if (rb[i] < min_value) {
+                    min_value = rb[i];
+                  }
+                  if (rb[i] > max_value) {
+                    max_value = rb[i];
+                  }
+                }
+                if (!id(offset_accel_a_x_done)) {
+                  id(offset_accel_a_x) = min_value;
+                  id(offset_accel_a_x_done) = true;
+                }
+                id(accel_a_x_min).publish_state(min_value);
+                id(accel_a_x_max).publish_state(max_value);
+              }
+    acceleration_y:
+      id: accel_a_y
+      on_value:
+        then:
+          - lambda: |
+              auto rb = id(rb_accel_a_y);
+              rb.push(x);
+              float min_value;
+
+              if (rb.isFull() && !id(offset_accel_a_y_done)) {
+                // Compute the minimum, make it the offset
+                min_value = rb[0];
+                for (int i=0; i<1024; i++) {
+                  if (rb[i] < min_value) {
+                    min_value = rb[i];
+                  }
+                }
+                id(offset_accel_a_y_done) = true;
+                id(offset_accel_a_y) = min_value;
+              }
+    acceleration_z:
+      id: accel_a_z
+      on_value:
+        then:
+          - lambda: |
+              auto rb = id(rb_accel_a_z);
+              rb.push(x);
+              float min_value;
+
+              if (rb.isFull() && !id(offset_accel_a_z_done)) {
+                // Compute the minimum, make it the offset
+                min_value = rb[0];
+                for (int i=0; i<1024; i++) {
+                  if (rb[i] < min_value) {
+                    min_value = rb[i];
+                  }
+                }
+                id(offset_accel_a_z_done) = true;
+                id(offset_accel_a_z) = min_value;
+              }
+    gyroscope_x:
+      id: gyro_a_x
+    gyroscope_y:
+      id: gyro_a_y
+    gyroscope_z:
+      id: gyro_a_z
+    temperature:
+      id: temperature_a_raw
+  - platform: template
+    name: $SENSOR_A Acceleration X (Minimum)
+    id: accel_a_x_min
+    state_class: measurement
+    icon: mdi:axis-x-arrow
+    accuracy_decimals: 6
+  - platform: template
+    name: $SENSOR_A Acceleration X (Maximum)
+    id: accel_a_x_max
+    state_class: measurement
+    icon: mdi:axis-x-arrow
+    accuracy_decimals: 6
+  - platform: template
+    id: accel_a_magnitude
+    update_interval: 25ms
+    accuracy_decimals: 6
+    lambda: |-
+      auto x = id(accel_a_x).state;
+      auto y = id(accel_a_y).state;
+      auto z = id(accel_a_z).state;
+      return sqrt(x*x + y*y + z*z) - id(gravity);
+    on_value:
+      then:
+        sensor.template.publish:
+          id: accel_a_delta
+          state: !lambda |
+            static float last_value = 0.0f;
+            float change = 0;
+            change = x - last_value;
+            last_value = x;
+            return change;
+  - platform: template
+    id: accel_a_delta
+    update_interval: never
+    accuracy_decimals: 6
+  - platform: template
+    id: gyro_a_magnitude
+    update_interval: 25ms
+    accuracy_decimals: 6
+    lambda: |-
+      auto x = id(gyro_a_x).state;
+      auto y = id(gyro_a_y).state;
+      auto z = id(gyro_a_z).state;
+      return sqrt(x*x + y*y + z*z);
+    on_value:
+      then:
+        sensor.template.publish:
+          id: gyro_a_delta
+          state: !lambda |
+            static float last_value = 0.0f;
+            float change = 0;
+            change = x - last_value;
+            last_value = x;
+            return change;
+  - platform: template
+    id: gyro_a_delta
+    update_interval: never
+    accuracy_decimals: 6
+  - platform: copy
+    name: $SENSOR_A Acceleration Fast
+    disabled_by_default: True
+    source_id: accel_a_magnitude
+    state_class: measurement
+    filters:
+      - throttle_average: 1s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_A Acceleration
+    source_id: accel_a_magnitude
+    state_class: measurement
+    icon: mdi:axis-arrow
+    unit_of_measurement: m/s²
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  # - platform: copy
+  #   name: $SENSOR_A Acceleration X (Minimum)
+  #   source_id: accel_a_x
+  #   state_class: measurement
+  #   icon: mdi:axis-x-arrow
+  #   accuracy_decimals: 6
+  #   filters:
+  #     - min:
+  #         window_size: 1000
+  #         send_every: 1
+  #         send_first_at: 1
+  # - platform: copy
+  #   name: $SENSOR_A Acceleration X (Maximum)
+  #   source_id: accel_a_x
+  #   state_class: measurement
+  #   icon: mdi:axis-x-arrow
+  #   accuracy_decimals: 6
+  #   filters:
+  #     - max:
+  #         window_size: 1000
+  #         send_every: 1
+  #         send_first_at: 1
+  - platform: copy
+    name: $SENSOR_A Acceleration X (Average)
+    source_id: accel_a_x
+    state_class: measurement
+    icon: mdi:axis-x-arrow
+    accuracy_decimals: 6
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_A Acceleration Y (Minimum)
+    source_id: accel_a_y
+    state_class: measurement
+    icon: mdi:axis-y-arrow
+    accuracy_decimals: 6
+    filters:
+      - min:
+          window_size: 1000
+          send_every: 1
+          send_first_at: 1
+  - platform: copy
+    name: $SENSOR_A Acceleration Y (Maximum)
+    source_id: accel_a_y
+    state_class: measurement
+    icon: mdi:axis-y-arrow
+    accuracy_decimals: 6
+    filters:
+      - max:
+          window_size: 1000
+          send_every: 1
+          send_first_at: 1
+  - platform: copy
+    name: $SENSOR_A Acceleration Y (Average)
+    source_id: accel_a_y
+    state_class: measurement
+    icon: mdi:axis-y-arrow
+    accuracy_decimals: 6
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_A Acceleration Z (Minimum)
+    source_id: accel_a_z
+    state_class: measurement
+    icon: mdi:axis-z-arrow
+    accuracy_decimals: 6
+    filters:
+      - min:
+          window_size: 1000
+          send_every: 1
+          send_first_at: 1
+  - platform: copy
+    name: $SENSOR_A Acceleration Z (Maximum)
+    source_id: accel_a_z
+    state_class: measurement
+    icon: mdi:axis-z-arrow
+    accuracy_decimals: 6
+    filters:
+      - max:
+          window_size: 1000
+          send_every: 1
+          send_first_at: 1
+  - platform: copy
+    name: $SENSOR_A Acceleration Z (Average)
+    source_id: accel_a_z
+    state_class: measurement
+    icon: mdi:axis-z-arrow
+    accuracy_decimals: 6
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_A Acceleration Delta
+    source_id: accel_a_delta
+    state_class: measurement
+    icon: mdi:delta
+    unit_of_measurement: m/s²
+    disabled_by_default: true
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_A Gyroscope
+    source_id: gyro_a_magnitude
+    state_class: measurement
+    icon: mdi:rotate-orbit
+    unit_of_measurement: °/s
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_A Gyroscope Delta
+    source_id: gyro_a_delta
+    state_class: measurement
+    icon: mdi:delta
+    unit_of_measurement: °/s
+    disabled_by_default: true
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_A Temperature
+    source_id: temperature_a_raw
+    state_class: measurement
+    device_class: temperature
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+    # SENSOR B, Address 0x69, SA0=3V3
+  - platform: my_bmi160
+    address: 0x69
+    update_interval: 10ms
+    acceleration_x:
+      id: accel_b_x
+    acceleration_y:
+      id: accel_b_y
+    acceleration_z:
+      id: accel_b_z
+    gyroscope_x:
+      id: gyro_b_x
+    gyroscope_y:
+      id: gyro_b_y
+    gyroscope_z:
+      id: gyro_b_z
+    temperature:
+      id: temperature_b_raw
+  - platform: template
+    id: accel_b_magnitude
+    update_interval: 25ms
+    accuracy_decimals: 6
+    lambda: |-
+      auto x = id(accel_b_x).state;
+      auto y = id(accel_b_y).state;
+      auto z = id(accel_b_z).state;
+      return sqrt(x*x + y*y + z*z) - id(gravity);
+    on_value:
+      then:
+        sensor.template.publish:
+          id: accel_b_delta
+          state: !lambda |
+            static float last_value = 0.0f;
+            float change = 0;
+            change = x - last_value;
+            last_value = x;
+            return change;
+  - platform: template
+    id: accel_b_delta
+    update_interval: never
+    accuracy_decimals: 6
+  - platform: template
+    id: gyro_b_magnitude
+    update_interval: 25ms
+    accuracy_decimals: 6
+    lambda: |-
+      auto x = id(gyro_b_x).state;
+      auto y = id(gyro_b_y).state;
+      auto z = id(gyro_b_z).state;
+      return sqrt(x*x + y*y + z*z);
+    on_value:
+      then:
+        sensor.template.publish:
+          id: gyro_b_delta
+          state: !lambda |
+            static float last_value = 0.0f;
+            float change = 0;
+            change = x - last_value;
+            last_value = x;
+            return change;
+  - platform: template
+    id: gyro_b_delta
+    update_interval: never
+    accuracy_decimals: 6
+  - platform: copy
+    name: $SENSOR_B Acceleration Fast
+    disabled_by_default: True
+    source_id: accel_b_magnitude
+    state_class: measurement
+    filters:
+      - throttle_average: 1s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_B Acceleration
+    source_id: accel_b_magnitude
+    state_class: measurement
+    icon: mdi:axis-arrow
+    unit_of_measurement: m/s²
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_B Acceleration Delta
+    source_id: accel_b_delta
+    state_class: measurement
+    icon: mdi:delta
+    unit_of_measurement: m/s²
+    disabled_by_default: true
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_B Gyroscope
+    source_id: gyro_b_magnitude
+    state_class: measurement
+    icon: mdi:rotate-orbit
+    unit_of_measurement: °/s
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_B Gyroscope Delta
+    source_id: gyro_b_delta
+    state_class: measurement
+    icon: mdi:delta
+    unit_of_measurement: °/s
+    disabled_by_default: true
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+  - platform: copy
+    name: $SENSOR_B Temperature
+    source_id: temperature_b_raw
+    state_class: measurement
+    device_class: temperature
+    filters:
+      - throttle_average: 10s
+      - filter_out: nan
+
+
+status_led:
+  pin:
+    number: D4
+    inverted: yes
