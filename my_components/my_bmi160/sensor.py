@@ -4,7 +4,7 @@ import esphome.config_validation as cv
 from esphome.components import i2c
 
 DEPENDENCIES = bmi160.DEPENDENCIES
-AUTO_LOAD = ["bmi160"]
+# AUTO_LOAD = ["bmi160"]
 
 bmi160_ns = cg.esphome_ns.namespace("my_bmi160")
 BMI160Component = bmi160_ns.class_("MyBMI160Component", cg.PollingComponent, i2c.I2CDevice)
