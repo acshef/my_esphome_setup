@@ -1,0 +1,449 @@
+packages:
+  device_base: !include common/device_base.yaml
+
+esp8266:
+  board: d1_mini
+
+substitutions:
+  NODE_NAME: washer-dryer
+  FRIENDLY_NAME: "Washer Dryer"
+  SENSOR_INTERVAL: 25ms
+  BUFFER_SIZE: 512
+  AVERAGE_INTERVAL: 10s
+  ACCURACY_DECIMALS: 6
+  DRYER_HOLD_HIGH_TIME_MS: 120000 # 2 minutes
+  DRYER_HOLD_LOW_TIME_MS: 60000 # 1 minute
+  DRYER_THRESHOLD: "1.0"
+  LOG_LEVEL: INFO
+
+  SENSOR_A: Dryer
+  ICON_A: mdi:tumble-dryer
+
+  SENSOR_B: Washing Machine
+  ICON_B: mdi:washing-machine
+
+globals:
+  - id: calibrated
+    type: bool
+    initial_value: "false"
+  - id: binary_a_raw
+    type: bool
+    initial_value: "false"
+  - id: binary_b_raw
+    type: bool
+    initial_value: "false"
+
+i2c:
+
+.filter_min_max: &filter_min_max
+  window_size: $BUFFER_SIZE
+  send_every: 4
+  send_first_at: 1
+._sensor_avg: &_sensor_avg
+  filters:
+    - throttle_average: $AVERAGE_INTERVAL
+    - filter_out: nan
+.sensor_temperature: &sensor_temperature
+  state_class: measurement
+  device_class: temperature
+  accuracy_decimals: 0
+  filters:
+    - throttle_average: $AVERAGE_INTERVAL
+    - filter_out: nan
+    - delta: 0.01
+.sensor_min: &sensor_min
+  platform: copy
+  state_class: measurement
+  accuracy_decimals: $ACCURACY_DECIMALS
+  filters:
+    - min:
+        <<: *filter_min_max
+    - delta: 0.0
+.sensor_max: &sensor_max
+  internal: true
+  platform: copy
+  state_class: measurement
+  accuracy_decimals: $ACCURACY_DECIMALS
+.sensor_offset: &sensor_offset
+  platform: template
+  state_class: measurement
+  entity_category: diagnostic
+  accuracy_decimals: $ACCURACY_DECIMALS
+  update_interval: never
+  disabled_by_default: true
+  lambda: |
+    return NAN;
+.sensor_peak: &sensor_peak
+  platform: template
+  update_interval: $SENSOR_INTERVAL
+  state_class: measurement
+  accuracy_decimals: $ACCURACY_DECIMALS
+.sensor_accel_peak: &sensor_accel_peak
+  <<: *sensor_peak
+  <<: *_sensor_avg
+  icon: mdi:axis-arrow
+  unit_of_measurement: m/s²
+.sensor_gyro_peak: &sensor_gyro_peak
+  <<: *sensor_peak
+  <<: *_sensor_avg
+  icon: mdi:rotate-orbit
+  unit_of_measurement: °/s
+
+script:
+  - id: calibrate
+    mode: parallel
+    max_runs: 1
+    then:
+      - lambda: |
+          float x, y, z;
+
+          x = -id(accel_a_x_min).get_state();
+          y = -id(accel_a_y_min).get_state();
+          z = -id(accel_a_z_min).get_state();
+          id(accel_a_x_offset).publish_state(x);
+          id(accel_a_y_offset).publish_state(y);
+          id(accel_a_z_offset).publish_state(z);
+          ESP_LOGI("main", "Calibration: $SENSOR_A acceleration offsets: (%.6f, %.6f, %.6f)", x, y, z);
+
+          x = -id(accel_b_x_min).get_state();
+          y = -id(accel_b_y_min).get_state();
+          z = -id(accel_b_z_min).get_state();
+          id(accel_b_x_offset).publish_state(x);
+          id(accel_b_y_offset).publish_state(y);
+          id(accel_b_z_offset).publish_state(z);
+          ESP_LOGI("main", "Calibration: $SENSOR_B acceleration offsets: (%.6f, %.6f, %.6f)", x, y, z);
+
+          // x = -id(gyro_b_x_min).get_state();
+          // y = -id(gyro_b_y_min).get_state();
+          // z = -id(gyro_b_z_min).get_state();
+          // id(gyro_b_x_offset).publish_state(x);
+          // id(gyro_b_y_offset).publish_state(y);
+          // id(gyro_b_z_offset).publish_state(z);
+          // ESP_LOGI("main", "Calibration: $SENSOR_B gyro offsets: (%.6f, %.6f, %.6f)", x, y, z);
+
+          id(calibrated) = true;
+
+interval:
+  - interval: 10s
+    startup_delay: 10s
+    then:
+      - if:
+          condition:
+            lambda: "return !id(calibrated);"
+          then:
+            - script.execute: calibrate
+
+sensor:
+  #   ######  ######## ##    ##  ######   #######  ########         ###
+  #  ##    ## ##       ###   ## ##    ## ##     ## ##     ##       ## ##
+  #  ##       ##       ####  ## ##       ##     ## ##     ##      ##   ##
+  #   ######  ######   ## ## ##  ######  ##     ## ########      ##     ##
+  #        ## ##       ##  ####       ## ##     ## ##   ##       #########
+  #  ##    ## ##       ##   ### ##    ## ##     ## ##    ##      ##     ##
+  #   ######  ######## ##    ##  ######   #######  ##     ##     ##     ##
+  # Address 0x68, SA0=GND
+  - platform: my_bmi160
+    id: sensor_a
+    address: 0x68
+    update_interval: $SENSOR_INTERVAL
+    acceleration_x:
+      id: accel_a_x
+    acceleration_y:
+      id: accel_a_y
+    acceleration_z:
+      id: accel_a_z
+    # gyroscope_x:
+    #   id: gyro_a_x
+    # gyroscope_y:
+    #   id: gyro_a_y
+    # gyroscope_z:
+    #   id: gyro_a_z
+    temperature:
+      <<: *sensor_temperature
+      name: $SENSOR_A Temperature
+  - <<: *sensor_min
+    id: accel_a_x_min
+    source_id: accel_a_x
+  - <<: *sensor_max
+    name: $SENSOR_A Acceleration X Max
+    id: accel_a_x_max
+    source_id: accel_a_x
+    filters:
+      - max:
+          <<: *filter_min_max
+      - throttle_average: $AVERAGE_INTERVAL
+      - filter_out: nan
+      - offset: !lambda return id(accel_a_x_offset).get_state();
+  - <<: *sensor_offset
+    id: accel_a_x_offset
+    name: $SENSOR_A Acceleration X Offset
+  - <<: *sensor_min
+    id: accel_a_y_min
+    source_id: accel_a_y
+  - <<: *sensor_max
+    name: $SENSOR_A Acceleration Y Max
+    id: accel_a_y_max
+    source_id: accel_a_y
+    filters:
+      - max:
+          <<: *filter_min_max
+      - throttle_average: $AVERAGE_INTERVAL
+      - filter_out: nan
+      - offset: !lambda return id(accel_a_y_offset).get_state();
+  - <<: *sensor_offset
+    name: $SENSOR_A Acceleration Y Offset
+    id: accel_a_y_offset
+  - <<: *sensor_min
+    id: accel_a_z_min
+    source_id: accel_a_z
+  - <<: *sensor_max
+    name: $SENSOR_A Acceleration Z Max
+    id: accel_a_z_max
+    source_id: accel_a_z
+    filters:
+      - max:
+          <<: *filter_min_max
+      - throttle_average: $AVERAGE_INTERVAL
+      - filter_out: nan
+      - offset: !lambda return id(accel_a_z_offset).get_state();
+  - <<: *sensor_offset
+    name: $SENSOR_A Acceleration Z Offset
+    id: accel_a_z_offset
+  - <<: *sensor_accel_peak
+    name: $SENSOR_A Acceleration
+    id: accel_a
+    lambda: |-
+      auto x = id(accel_a_x_max).state;
+      auto y = id(accel_a_y_max).state;
+      auto z = id(accel_a_z_max).state;
+      return sqrt(x*x + y*y + z*z);
+    on_value:
+      then:
+        - lambda: |
+            // 0: Dryer off, low acceleration
+            // 1: Dryer off, high acceleration
+            // 2: Dryer on, high acceleration
+            // 3: Dryer on, low acceleration
+            static int state = 0;
+            static uint32_t last_state_change = 0;
+            auto now = millis();
+            auto moving = x > $DRYER_THRESHOLD;
+
+            if (state == 0) {
+              if (moving) {
+                // Move to state 1
+                state = 1;
+                last_state_change = now;
+                ESP_LOGI("main", "$SENSOR_A State 0 -> 1");
+              }
+            } else if (state == 1) {
+              if (moving) {
+                if (now - last_state_change > $DRYER_HOLD_HIGH_TIME_MS) {
+                  // Move to state 2
+                  state = 2;
+                  last_state_change = now;
+                  id(binary_a_raw) = true;
+                  id(binary_a).publish_state(true);
+                  ESP_LOGI("main", "$SENSOR_A State 1 -> 2");
+                }
+              } else {
+                // Move back to state 0
+                state = 0;
+                last_state_change = now;
+                ESP_LOGI("main", "$SENSOR_A State 1 -> 0");
+              }
+            } else if (state == 2) {
+              if (!moving) {
+                // Move to state 3
+                state = 3;
+                last_state_change = now;
+                ESP_LOGI("main", "$SENSOR_A State 2 -> 3");
+              }
+            } else if (state == 3) {
+              if (moving) {
+                // Move back to state 2
+                state = 2;
+                last_state_change = now;
+                ESP_LOGI("main", "$SENSOR_A State 3 -> 2");
+              } else {
+                if (now - last_state_change > $DRYER_HOLD_LOW_TIME_MS) {
+                  // Move to state 0
+                  state = 0;
+                  last_state_change = now;
+                  id(binary_a_raw) = false;
+                  id(binary_a).publish_state(false);
+                  ESP_LOGI("main", "$SENSOR_A State 3 -> 0");
+                }
+              }
+            } else {
+              // Unknown state
+              state = 0;
+              last_state_change = now;
+              id(binary_a).invalidate_state();
+              ESP_LOGI("main", "$SENSOR_A State BAD");
+            }
+
+    #   ######  ######## ##    ##  ######   #######  ########      ########
+    #  ##    ## ##       ###   ## ##    ## ##     ## ##     ##     ##     ##
+    #  ##       ##       ####  ## ##       ##     ## ##     ##     ##     ##
+    #   ######  ######   ## ## ##  ######  ##     ## ########      ########
+    #        ## ##       ##  ####       ## ##     ## ##   ##       ##     ##
+    #  ##    ## ##       ##   ### ##    ## ##     ## ##    ##      ##     ##
+    #   ######  ######## ##    ##  ######   #######  ##     ##     ########
+    # Address 0x69, SA0=3V3
+  - platform: my_bmi160
+    id: sensor_b
+    address: 0x69
+    update_interval: $SENSOR_INTERVAL
+    acceleration_x:
+      id: accel_b_x
+    acceleration_y:
+      id: accel_b_y
+    acceleration_z:
+      id: accel_b_z
+    # gyroscope_x:
+    #   id: gyro_b_x
+    # gyroscope_y:
+    #   id: gyro_b_y
+    # gyroscope_z:
+    #   id: gyro_b_z
+    temperature:
+      <<: *sensor_temperature
+      name: $SENSOR_B Temperature
+  - <<: *sensor_min
+    id: accel_b_x_min
+    source_id: accel_b_x
+  - <<: *sensor_max
+    name: $SENSOR_B Acceleration X Max
+    id: accel_b_x_max
+    source_id: accel_b_x
+    filters:
+      - max:
+          <<: *filter_min_max
+      - throttle_average: $AVERAGE_INTERVAL
+      - filter_out: nan
+      - offset: !lambda return id(accel_b_x_offset).get_state();
+  - <<: *sensor_offset
+    id: accel_b_x_offset
+    name: $SENSOR_B Acceleration X Offset
+  - <<: *sensor_min
+    id: accel_b_y_min
+    source_id: accel_b_y
+  - <<: *sensor_max
+    name: $SENSOR_B Acceleration Y Max
+    id: accel_b_y_max
+    source_id: accel_b_y
+    filters:
+      - max:
+          <<: *filter_min_max
+      - throttle_average: $AVERAGE_INTERVAL
+      - filter_out: nan
+      - offset: !lambda return id(accel_b_y_offset).get_state();
+  - <<: *sensor_offset
+    name: $SENSOR_B Acceleration Y Offset
+    id: accel_b_y_offset
+  - <<: *sensor_min
+    id: accel_b_z_min
+    source_id: accel_b_z
+  - <<: *sensor_max
+    name: $SENSOR_B Acceleration Z Max
+    id: accel_b_z_max
+    source_id: accel_b_z
+    filters:
+      - max:
+          <<: *filter_min_max
+      - throttle_average: $AVERAGE_INTERVAL
+      - filter_out: nan
+      - offset: !lambda return id(accel_b_z_offset).get_state();
+  - <<: *sensor_offset
+    name: $SENSOR_B Acceleration Z Offset
+    id: accel_b_z_offset
+  - <<: *sensor_accel_peak
+    name: $SENSOR_B Acceleration
+    lambda: |-
+      auto x = id(accel_b_x_max).state;
+      auto y = id(accel_b_y_max).state;
+      auto z = id(accel_b_z_max).state;
+      return sqrt(x*x + y*y + z*z);
+  # - <<: *sensor_min
+  #   id: gyro_b_x_min
+  #   source_id: gyro_b_x
+  # - <<: *sensor_max
+  #   name: $SENSOR_B Gyro X Max
+  #   id: gyro_b_x_max
+  #   source_id: gyro_b_x
+  #   filters:
+  #     - max:
+  #         <<: *filter_min_max
+  #     - throttle_average: $AVERAGE_INTERVAL
+  #     - filter_out: nan
+  #     - offset: !lambda return id(gyro_b_x_offset).get_state();
+  # - <<: *sensor_offset
+  #   id: gyro_b_x_offset
+  #   name: $SENSOR_B Gyro X Offset
+  # - <<: *sensor_min
+  #   id: gyro_b_y_min
+  #   source_id: gyro_b_y
+  # - <<: *sensor_max
+  #   name: $SENSOR_B Gyro Y Max
+  #   id: gyro_b_y_max
+  #   source_id: gyro_b_y
+  #   filters:
+  #     - max:
+  #         <<: *filter_min_max
+  #     - throttle_average: $AVERAGE_INTERVAL
+  #     - filter_out: nan
+  #     - offset: !lambda return id(gyro_b_y_offset).get_state();
+  # - <<: *sensor_offset
+  #   id: gyro_b_y_offset
+  #   name: $SENSOR_B Gyro Y Offset
+  # - <<: *sensor_min
+  #   id: gyro_b_z_min
+  #   source_id: gyro_b_z
+  # - <<: *sensor_max
+  #   name: $SENSOR_B Gyro Z Max
+  #   id: gyro_b_z_max
+  #   source_id: gyro_b_z
+  #   filters:
+  #     - max:
+  #         <<: *filter_min_max
+  #     - throttle_average: $AVERAGE_INTERVAL
+  #     - filter_out: nan
+  #     - offset: !lambda return id(gyro_b_z_offset).get_state();
+  # - <<: *sensor_offset
+  #   id: gyro_b_z_offset
+  #   name: $SENSOR_B Gyro Z Offset
+  # - <<: *sensor_gyro_peak
+  #   name: $SENSOR_B Gyro
+  #   lambda: |-
+  #     auto x = id(gyro_b_x_max).state;
+  #     auto y = id(gyro_b_y_max).state;
+  #     auto z = id(gyro_b_z_max).state;
+  #     return sqrt(x*x + y*y + z*z);
+
+binary_sensor:
+  - platform: template
+    name: $SENSOR_A
+    id: binary_a
+    icon: $ICON_A
+    lambda: |
+      return id(binary_a_raw);
+  - platform: template
+    name: $SENSOR_B
+    id: binary_b
+    icon: $ICON_B
+    lambda: |
+      return id(binary_b_raw);
+
+button:
+  - platform: template
+    name: Recalibrate
+    entity_category: config
+    icon: mdi:cube-scan
+    on_press:
+      - script.execute: calibrate
+
+status_led:
+  pin:
+    number: D4
+    inverted: yes
