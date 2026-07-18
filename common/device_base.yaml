@@ -4,19 +4,20 @@ esphome:
   friendly_name: $FRIENDLY_NAME
   build_path: .build/${NODE_NAME}/
   on_boot:
-    - text_sensor.template.publish:
-        id: config_hash
-        state: !lambda |-
-          // PRIx32 is format conversion specifier to output an unsigned lowercase hexadecimal integer value of type
-          // See: https://en.cppreference.com/w/cpp/header/cinttypes.html
-          // If we wanted uppercase hex, we'd use "PRIX32" instead.
-          // This is equivalent to "x" for unsigned ints, but apparently it's safer to use this constant
-          // than to use a literal "x"
-          return str_sprintf("0x%08" PRIx32, App.get_config_hash());
-    - text_sensor.template.publish:
-        id: esp_version
-        state: !lambda |-
-          return {ESPHOME_VERSION};
+    - then:
+        - text_sensor.template.publish:
+            id: config_hash
+            state: !lambda |-
+              // PRIx32 is format conversion specifier to output an unsigned lowercase hexadecimal integer value of type
+              // See: https://en.cppreference.com/w/cpp/header/cinttypes.html
+              // If we wanted uppercase hex, we'd use "PRIX32" instead.
+              // This is equivalent to "x" for unsigned ints, but apparently it's safer to use this constant
+              // than to use a literal "x"
+              return str_sprintf("0x%08" PRIx32, App.get_config_hash());
+        - text_sensor.template.publish:
+            id: esp_version
+            state: !lambda |-
+              return {ESPHOME_VERSION};
 
 substitutions:
   # NODE_NAME
