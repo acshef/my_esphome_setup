@@ -61,8 +61,20 @@ esphome:
 globals:
   - id: status_led_active
     type: bool
-    restore_value: False
     initial_value: "0"
+  - id: slr_values
+    type: float[$SAMPLE_SIZE]
+  - id: slr_times
+    type: uint32_t[$SAMPLE_SIZE]
+  - id: slr_index
+    type: int
+    initial_value: "0"
+  - id: slr_full
+    type: bool
+    initial_value: "0"
+  # - id: cycle_state
+  #   type: int
+  #   initial_value: "0"
 
 substitutions:
   NODE_NAME: water-controller
@@ -94,6 +106,8 @@ substitutions:
   PIN_MOTOR_FWD: GPIO26
   PIN_MOTOR_REV: GPIO27
   TIME_MOTOR_ON: 15s # How long it takes to open and close the valve
+  SAMPLE_SIZE: 11
+  SAMPLE_SPACING_MILLIS: 30000
 
 i2c:
 
@@ -334,11 +348,11 @@ sensor:
     on_raw_value:
       then:
         lambda: |
-          ESP_LOGI("ads1115", "PSI_1 Raw = %.3f", x);
+          ESP_LOGD("ads1115", "PSI_1 Raw = %.3f", x);
     on_value:
       then:
         lambda: |
-          ESP_LOGI("ads1115", "PSI_1 Val = %.1f psi", x);
+          ESP_LOGD("ads1115", "PSI_1 Val = %.1f psi", x);
   - platform: ads1115
     id: psi_2
     name: Water Pressure 2
@@ -362,11 +376,11 @@ sensor:
     on_raw_value:
       then:
         lambda: |
-          ESP_LOGI("ads1115", "PSI_2 Raw =         %.3f", x);
+          ESP_LOGD("ads1115", "PSI_2 Raw =         %.3f", x);
     on_value:
       then:
         lambda: |
-          ESP_LOGI("ads1115", "PSI_2 Val = %.1f psi", x);
+          ESP_LOGD("ads1115", "PSI_2 Val = %.1f psi", x);
   - platform: ads1115
     id: psi_3
     name: Water Pressure 3
@@ -390,11 +404,11 @@ sensor:
     on_raw_value:
       then:
         lambda: |
-          ESP_LOGI("ads1115", "PSI_3 Raw =                 %.3f", x);
+          ESP_LOGD("ads1115", "PSI_3 Raw =                 %.3f", x);
     on_value:
       then:
         lambda: |
-          ESP_LOGI("ads1115", "PSI_3 Val = %.1f psi", x);
+          ESP_LOGD("ads1115", "PSI_3 Val = %.1f psi", x);
   - platform: template
     name: Pressure drop across pre-filter
     device_class: pressure
@@ -412,7 +426,7 @@ sensor:
     lambda: |-
       return std::max(0.0f, id(psi_3).state - id(psi_2).state); // Prevent negatives
   - platform: hx711
-    name: Salt Weight
+    id: salt_weight
     update_interval: $HX711_UPDATE_INTERVAL
     dout_pin: $PIN_HX711_DOUT
     clk_pin: $PIN_HX711_CLK
@@ -427,16 +441,95 @@ sensor:
           - $HX711_LOAD_VALUE -> $HX711_LOAD_WEIGHT
       - clamp:
           min_value: 0
-      - delta: 0.15
-    unit_of_measurement: lb
     on_raw_value:
       then:
         lambda: |
           ESP_LOGD("hx711", "Salt Raw = %.0f", x);
+  - platform: copy
+    name: Salt Weight
+    source_id: salt_weight
+    state_class: measurement
+    device_class: weight
+    unit_of_measurement: lb
+    accuracy_decimals: 1
+    filters:
+      - delta: 0.15
     on_value:
       then:
         lambda: |
-          ESP_LOGD("hx711", "Salt Val = %.3f lb", x);
+          ESP_LOGD("main", "Salt Val = %.3f lb", x);
+  - platform: copy
+    name: "Sampled Salt Weight"
+    internal: true
+    id: sensor_slr
+    source_id: salt_weight
+    filters:
+      - throttle: ${SAMPLE_SPACING_MILLIS}ms
+    on_value:
+      then:
+        - lambda: |
+            id(slr_values)[id(slr_index)] = x;
+            id(slr_times)[id(slr_index)] = millis();
+            id(slr_index) = (id(slr_index) + 1) % $SAMPLE_SIZE;
+            if (!id(slr_index)) {
+              id(slr_full) = true;
+            }
+            if (id(slr_full)) {
+              float mean_values = 0;
+              float mean_times = 0;
+              double numerator = 0;
+              double denominator = 0;
+              float slope = 0;
+              float intercept = 0;
+              float rmse = 0;
+
+              for (int i=0; i<$SAMPLE_SIZE; i++) {
+                mean_values += id(slr_values)[i];
+                mean_times += id(slr_times)[i];
+              }
+              mean_values /= $SAMPLE_SIZE;
+              mean_times /= $SAMPLE_SIZE;
+
+              for (int i=0; i<$SAMPLE_SIZE; i++) {
+                numerator += (id(slr_times)[i] - mean_times) * (id(slr_values)[i] - mean_values);
+                denominator += (id(slr_times)[i] - mean_times) * (id(slr_times)[i] - mean_times);
+              }
+
+              if (denominator != 0.0) {
+                slope = numerator / denominator;
+                intercept = mean_values - (slope * mean_times);
+              }
+
+              for (int i=0; i<$SAMPLE_SIZE; i++) {
+                float val_pred = slope * id(slr_times)[i] + intercept;
+                float val_true = id(slr_values)[i];
+                rmse += (val_true - val_pred) * (val_true - val_pred);
+              }
+
+              rmse = std::sqrt(rmse / $SAMPLE_SIZE);
+
+              id(salt_weight_rate).publish_state(slope * 60000); // Convert from lbs/ms to lbs/min
+              id(salt_weight_error).publish_state(rmse);
+            }
+  - platform: template
+    id: salt_weight_rate
+    name: Salt Weight Rate
+    state_class: measurement
+    unit_of_measurement: lb/min
+    icon: mdi:waves-arrow-up
+    accuracy_decimals: 1
+    update_interval: never
+    lambda: |
+      return NAN;
+  - platform: template
+    id: salt_weight_error
+    name: Salt Weight RMSE
+    state_class: measurement
+    icon: mdi:target-variant
+    accuracy_decimals: 6
+    update_interval: never
+    lambda: |
+      return NAN;
 
 valve:
   - platform: template
