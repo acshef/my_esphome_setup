@@ -1,0 +1,65 @@
+packages:
+  device_base: !include common/device_base.yaml
+  espframe:
+    url: https://github.com/jtenniswood/espframe
+    files:
+      - devices/guition-esp32-p4-jc8012p4a1/packages.yaml
+    ref: main
+    refresh: 15min
+
+esp32:
+  framework:
+    advanced:
+      enable_ota_rollback: false
+
+safe_mode:
+  disabled: true
+  boot_is_good_after: 0s
+  boot_is_good_on_shutdown: true
+
+substitutions:
+  NODE_NAME: espframe
+  FRIENDLY_NAME: ESPFrame
+  name: $NODE_NAME # Required by espframe
+  friendly_name: $FRIENDLY_NAME # Required by espframe
+  immich_base_url: !secret immich_base_url
+  immich_api_key: !secret immich_api_key
+
+binary_sensor:
+  - id: !extend ink_ha_connected
+    internal: true
+
+text_sensor:
+  - id: !extend firmware_device_sensor
+    internal: true
+  - id: !extend firmware_version_sensor
+    internal: true
+  # https://github.com/esphome/issues/issues/6532
+  # - id: !extend network_ip_address
+  #   internal: true
+
+sensor:
+  - id: !extend wifi_signal_db
+    internal: true
+    update_interval: never
+  - id: !extend wifi_signal_strength
+    internal: true
+
+button:
+  - id: !extend reboot_screen_button
+    internal: true
+  - id: !extend firmware_prepare_browser_update
+    internal: true
+  - id: !extend firmware_cancel_browser_update
+    internal: true
+  - id: !extend firmware_check_for_update
+    internal: true
+
+select:
+  - id: !extend update_frequency_select
+    internal: true
+
+switch:
+  - id: !extend auto_update_switch
+    internal: true
+    restore_mode: ALWAYS_OFF
