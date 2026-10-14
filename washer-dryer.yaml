@@ -1,19 +1,23 @@
 packages:
   device_base: !include common/device_base.yaml
 
-esp8266:
-  board: d1_mini
+esp32:
+  variant: esp32c3
+
+wifi:
+  # https://github.com/esphome/issues/issues/4893
+  output_power: 8.5
 
 substitutions:
   NODE_NAME: washer-dryer
   FRIENDLY_NAME: "Washer Dryer"
-  SENSOR_INTERVAL: 25ms
-  BUFFER_SIZE: 512
+  SENSOR_INTERVAL: 50ms
+  BUFFER_SIZE: 256
   AVERAGE_INTERVAL: 10s
   ACCURACY_DECIMALS: 6
-  DRYER_HOLD_HIGH_TIME_MS: 120000 # 2 minutes
+  DRYER_HOLD_HIGH_TIME_MS: 90000 # 90 seconds
   DRYER_HOLD_LOW_TIME_MS: 60000 # 1 minute
-  DRYER_THRESHOLD: "1.0"
+  DRYER_THRESHOLD: "1.05"
   LOG_LEVEL: INFO
 
   SENSOR_A: Dryer
@@ -26,6 +30,21 @@ globals:
   - id: calibrated
     type: bool
     initial_value: "false"
+  - id: washer_state
+    type: int
+    initial_value: "0"
+  - id: washer_state_change
+    type: uint32_t
+    initial_value: "0"
+  - id: dryer_state
+    type: int
+    initial_value: "0"
+  - id: dryer_state_change
+    type: uint32_t
+    initial_value: "0"
+  - id: last_screen_on
+    type: uint32_t
+    initial_value: "0"
   - id: binary_a_raw
     type: bool
     initial_value: "false"
@@ -34,6 +53,8 @@ globals:
     initial_value: "false"
 
 i2c:
+  sda: GPIO5
+  scl: GPIO6
 
 .filter_min_max: &filter_min_max
   window_size: $BUFFER_SIZE
@@ -90,6 +111,11 @@ i2c:
   unit_of_measurement: °/s
 
 script:
+  - id: wake_screen
+    mode: single
+    then:
+      - lambda: |
+          id(last_screen_on) = millis();
   - id: calibrate
     mode: parallel
     max_runs: 1
@@ -142,7 +168,7 @@ sensor:
   #  ##    ## ##       ##   ### ##    ## ##     ## ##    ##      ##     ##
   #   ######  ######## ##    ##  ######   #######  ##     ##     ##     ##
   # Address 0x68, SA0=GND
-  - platform: my_bmi160
+  - platform: bmi160
     id: sensor_a
     address: 0x68
     update_interval: $SENSOR_INTERVAL
@@ -224,52 +250,50 @@ sensor:
             // 1: Dryer off, high acceleration
             // 2: Dryer on, high acceleration
             // 3: Dryer on, low acceleration
-            static int state = 0;
-            static uint32_t last_state_change = 0;
             auto now = millis();
             auto moving = x > $DRYER_THRESHOLD;
 
-            if (state == 0) {
+            if (id(dryer_state) == 0) {
               if (moving) {
                 // Move to state 1
-                state = 1;
-                last_state_change = now;
+                id(dryer_state) = 1;
+                id(dryer_state_change) = now;
                 ESP_LOGI("main", "$SENSOR_A State 0 -> 1");
               }
-            } else if (state == 1) {
+            } else if (id(dryer_state) == 1) {
               if (moving) {
-                if (now - last_state_change > $DRYER_HOLD_HIGH_TIME_MS) {
+                if (now - id(dryer_state_change) > $DRYER_HOLD_HIGH_TIME_MS) {
                   // Move to state 2
-                  state = 2;
-                  last_state_change = now;
+                  id(dryer_state) = 2;
+                  id(dryer_state_change) = now;
                   id(binary_a_raw) = true;
                   id(binary_a).publish_state(true);
                   ESP_LOGI("main", "$SENSOR_A State 1 -> 2");
                 }
               } else {
                 // Move back to state 0
-                state = 0;
-                last_state_change = now;
+                id(dryer_state) = 0;
+                id(dryer_state_change) = now;
                 ESP_LOGI("main", "$SENSOR_A State 1 -> 0");
               }
-            } else if (state == 2) {
+            } else if (id(dryer_state) == 2) {
               if (!moving) {
                 // Move to state 3
-                state = 3;
-                last_state_change = now;
+                id(dryer_state) = 3;
+                id(dryer_state_change) = now;
                 ESP_LOGI("main", "$SENSOR_A State 2 -> 3");
               }
-            } else if (state == 3) {
+            } else if (id(dryer_state) == 3) {
               if (moving) {
                 // Move back to state 2
-                state = 2;
-                last_state_change = now;
+                id(dryer_state) = 2;
+                id(dryer_state_change) = now;
                 ESP_LOGI("main", "$SENSOR_A State 3 -> 2");
               } else {
-                if (now - last_state_change > $DRYER_HOLD_LOW_TIME_MS) {
+                if (now - id(dryer_state_change) > $DRYER_HOLD_LOW_TIME_MS) {
                   // Move to state 0
-                  state = 0;
-                  last_state_change = now;
+                  id(dryer_state) = 0;
+                  id(dryer_state_change) = now;
                   id(binary_a_raw) = false;
                   id(binary_a).publish_state(false);
                   ESP_LOGI("main", "$SENSOR_A State 3 -> 0");
@@ -277,8 +301,8 @@ sensor:
               }
             } else {
               // Unknown state
-              state = 0;
-              last_state_change = now;
+              id(dryer_state) = 0;
+              id(dryer_state_change) = now;
               id(binary_a).invalidate_state();
               ESP_LOGI("main", "$SENSOR_A State BAD");
             }
@@ -291,7 +315,7 @@ sensor:
     #  ##    ## ##       ##   ### ##    ## ##     ## ##    ##      ##     ##
     #   ######  ######## ##    ##  ######   #######  ##     ##     ########
     # Address 0x69, SA0=3V3
-  - platform: my_bmi160
+  - platform: bmi160
     id: sensor_b
     address: 0x69
     update_interval: $SENSOR_INTERVAL
@@ -442,8 +466,82 @@ button:
     icon: mdi:cube-scan
     on_press:
       - script.execute: calibrate
+  - platform: template
+    name: Wake Screen
+    entity_category: config
+    icon: mdi:eye-refresh
+    on_press:
+      - script.execute: wake_screen
+
+font:
+  # - file: https://raw.githubusercontent.com/trip5/Matrix-Fonts/refs/heads/main/6-series/MatrixLight6.bdf
+  #   id: matrix_6
+  #   size: 6
+  - file: https://raw.githubusercontent.com/trip5/Matrix-Fonts/refs/heads/main/8-series/MatrixLight8x6.bdf
+    id: matrix_8
+    size: 8
+  - file: "gfonts://Roboto@600"
+    id: roboto_18
+    size: 18
+  # - file: "gfonts://Roboto"
+  #   id: roboto_12
+  #   size: 12
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 72x40"
+    id: my_display
+    rotation: 0
+    update_interval: 1s
+    offset_y: 0
+    offset_x: 0
+    invert: false
+    address: 0x3C
+    lambda: |-
+      static uint8_t page = 0;
+      const uint8_t MAX_PAGES = 2;
+      const uint32_t DISPLAY_TIMEOUT = 60000;
+      auto millis_since_change = millis() - std::max({
+        id(washer_state_change),
+        id(dryer_state_change),
+        id(last_screen_on),
+      });
+
+      const char *washer_stages[] = {
+        "OFF",
+      };
+
+      const char *dryer_stages[] = {
+        "OFF",
+        "START",
+        "ON",
+        "DONE"
+      };
+
+      if (millis_since_change > DISPLAY_TIMEOUT) {
+        id(my_display).turn_off();
+        ESP_LOGD("main", "It's been 60 seconds, putting display back to sleep");
+      } else {
+        if (!id(my_display).is_on()) {
+          id(my_display).turn_on();
+        }
+        it.filled_rectangle(0,0,72,10);
+        if (page == 0) {
+          // Washer
+          it.filled_triangle(0, 25, 5, 20, 5, 30);
+          it.print(36, 1, id(matrix_8), COLOR_OFF, TextAlign::TOP_CENTER, "WASHER");
+          it.print(38, 15, id(roboto_18), TextAlign::TOP_CENTER, washer_stages[id(washer_state)]);
+        } else if (page == 1) {
+          // Dryer
+          it.filled_triangle(71, 25, 66, 20, 66, 30);
+          it.print(36, 1, id(matrix_8), COLOR_OFF, TextAlign::TOP_CENTER, "DRYER", COLOR_ON);
+          it.print(34, 15, id(roboto_18), TextAlign::TOP_CENTER, dryer_stages[id(dryer_state)]);
+        }
+        it.line(0,39,72 - (int)std::ceil(float(millis_since_change) / DISPLAY_TIMEOUT * 72.0), 39);
+        page = (page + 1) % MAX_PAGES;
+      }
 
 status_led:
   pin:
-    number: D4
+    number: GPIO8
     inverted: yes
