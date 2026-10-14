@@ -72,9 +72,15 @@ globals:
   - id: slr_full
     type: bool
     initial_value: "0"
-  # - id: cycle_state
-  #   type: int
-  #   initial_value: "0"
+  - id: cycle_state
+    type: int
+    initial_value: "-1" # -1=Unknown, 0=Idle, 1=Pre-drain, 2=Drain, 3=Pre-recharge, 4=Recharge, 5=Pre-fill, 6=Fill, 7=Pre-idle
+  - id: idle_time
+    type: uint32_t
+    initial_value: "0"
+  - id: idle_weight
+    type: float
+    initial_value: "0"
 
 substitutions:
   NODE_NAME: water-controller
@@ -82,12 +88,15 @@ substitutions:
   ADS1115_ADDR: "0x48"
   ADS1115_GAIN: "4.096"
   ADS1115_UPDATE_INTERVAL: "1s"
+  PSI1_NAME: After Filter
   PSI1_ZERO_VALUE: "0.3370"
   PSI1_LOAD_VALUE: "0.9925"
   PSI1_LOAD_PRESSURE: "43.50" # psi
+  PSI2_NAME: Mid Filter
   PSI2_ZERO_VALUE: "0.3310"
   PSI2_LOAD_VALUE: "0.9655"
   PSI2_LOAD_PRESSURE: "43.50" # psi
+  PSI3_NAME: Before Filter
   PSI3_ZERO_VALUE: "0.3310"
   PSI3_LOAD_VALUE: "0.9725"
   PSI3_LOAD_PRESSURE: "44.75" # psi
@@ -327,7 +336,7 @@ binary_sensor:
 sensor:
   - platform: ads1115
     id: psi_1
-    name: Water Pressure 1
+    name: Water Pressure $PSI1_NAME
     update_interval: $ADS1115_UPDATE_INTERVAL
     multiplexer: A0_GND
     gain: $ADS1115_GAIN
@@ -355,7 +364,7 @@ sensor:
           ESP_LOGD("ads1115", "PSI_1 Val = %.1f psi", x);
   - platform: ads1115
     id: psi_2
-    name: Water Pressure 2
+    name: Water Pressure $PSI2_NAME
     update_interval: $ADS1115_UPDATE_INTERVAL
     multiplexer: A1_GND
     gain: $ADS1115_GAIN
@@ -383,7 +392,7 @@ sensor:
           ESP_LOGD("ads1115", "PSI_2 Val = %.1f psi", x);
   - platform: ads1115
     id: psi_3
-    name: Water Pressure 3
+    name: Water Pressure $PSI3_NAME
     update_interval: $ADS1115_UPDATE_INTERVAL
     multiplexer: A2_GND
     gain: $ADS1115_GAIN
@@ -416,7 +425,7 @@ sensor:
     accuracy_decimals: 1
     unit_of_measurement: psi
     lambda: |-
-      return std::max(0.0f, id(psi_2).state - id(psi_1).state); // Prevent negatives
+      return std::max(0.0f, id(psi_3).state - id(psi_2).state); // Prevent negatives
   - platform: template
     name: Pressure drop across softener
     device_class: pressure
@@ -424,7 +433,7 @@ sensor:
     accuracy_decimals: 1
     unit_of_measurement: psi
     lambda: |-
-      return std::max(0.0f, id(psi_3).state - id(psi_2).state); // Prevent negatives
+      return std::max(0.0f, id(psi_2).state - id(psi_1).state); // Prevent negatives
   - platform: hx711
     id: salt_weight
     update_interval: $HX711_UPDATE_INTERVAL
@@ -479,7 +488,8 @@ sensor:
               float mean_times = 0;
               double numerator = 0;
               double denominator = 0;
-              float slope = 0;
+              float slope = 0; // Raw mathematical value
+              float rate = 0; // Converted from slope to lb/min.
               float intercept = 0;
               float rmse = 0;
 
@@ -497,6 +507,7 @@ sensor:
 
               if (denominator != 0.0) {
                 slope = numerator / denominator;
+                rate = slope * 60000; // Convert from lbs/ms to lbs/min
                 intercept = mean_values - (slope * mean_times);
               }
 
@@ -508,8 +519,92 @@ sensor:
 
               rmse = std::sqrt(rmse / $SAMPLE_SIZE);
 
-              id(salt_weight_rate).publish_state(slope * 60000); // Convert from lbs/ms to lbs/min
+              id(salt_weight_rate).publish_state(rate);
               id(salt_weight_error).publish_state(rmse);
+
+              // Only operate on values that are low-error
+              if (rmse < 1.0) {
+                auto now = millis();
+
+                if (id(cycle_state) == 0) {
+                  // Only move to pre-drain if the rate is negative
+                  if (rate <= -0.1) {
+                    id(set_state)->execute(1, x);
+                  } else {
+                    id(idle_weight) = x;
+                    id(idle_time) = now;
+                  }
+                } else if (id(cycle_state) == 1) {
+                  // Only move to drain if the weight is decreasing 1.0lb/min or faster
+                  if (rate <= -0.1) {
+                    if (rate <= -1.0) {
+                      id(set_state)->execute(2, x);
+                    }
+                  } else {
+                    // Reset back to Idle
+                    id(set_state)->execute(-1, x);
+                  }
+                } else if (id(cycle_state) == 2) {
+                  // Only move to pre-recharge if the weight is decreasing slower than 2.0lb/min
+                  if (rate <= 0.0) {
+                    if (rate >= -2.0) {
+                      id(set_state)->execute(3, x);
+                    }
+                  } else {
+                    // Reset back to Idle
+                    id(set_state)->execute(-1, x);
+                  }
+                } else if (id(cycle_state) == 3) {
+                  // Only move to recharge if the weight is not changing
+                  if (rate >= -0.1) {
+                    if (rate <= 0.1) {
+                      id(set_state)->execute(4, x);
+                    } else {
+                      // Reset back to Idle
+                      id(set_state)->execute(-1, x);
+                    }
+                  }
+                } else if (id(cycle_state) == 4) {
+                  // Only move to pre-fill if the rate is positive
+                  if (rate >= 0.1) {
+                    id(set_state)->execute(5, x);
+                  }
+                } else if (id(cycle_state) == 5) {
+                  // Only move to fill if the weight is increasing 1.0lb/min or faster
+                  if (rate >= 0.1) {
+                    if (rate >= 1.0) {
+                      id(set_state)->execute(6, x);
+                    }
+                  } else {
+                    // Reset back to Idle
+                    id(set_state)->execute(-1, x);
+                  }
+                } else if (id(cycle_state) == 6) {
+                  // Only move to pre-idle if the weight is increasing slower than 1.5lb/min
+                  if (rate >= 0.0) {
+                    if (rate <= 1.5) {
+                      id(set_state)->execute(7, x);
+                    }
+                  } else {
+                    // Reset back to Idle
+                    id(set_state)->execute(-1, x);
+                  }
+                } else if (id(cycle_state) == 7) {
+                  // Only move to idle if the weight is not changing
+                  if (rate <= 0.1) {
+                    if (rate >= -0.1) {
+                      id(set_state)->execute(0, x);
+                      id(my_event).trigger("cycle_done");
+                    } else {
+                      // Reset back to idle
+                      id(set_state)->execute(-1, x);
+                    }
+                  }
+                } else {
+                  // Reset back to idle
+                  id(set_state)->execute(-1, x);
+                }
+              }
             }
   - platform: template
     id: salt_weight_rate
@@ -530,6 +625,72 @@ sensor:
     update_interval: never
     lambda: |
       return NAN;
+
+script:
+  - id: set_state
+    mode: single
+    parameters:
+      state: int
+      weight: float
+    then:
+      - if:
+          condition:
+            lambda: "return state < 0;"
+          then:
+            - lambda: |
+                ESP_LOGI("main", "State change %d -> %d (soft)", id(cycle_state), 0);
+                id(cycle_state) = 0;
+                id(text_stage).publish_state("Idle");
+          else:
+            - lambda: |
+                const char *stages[] = {
+                  "Idle",
+                  "Pre-drain",
+                  "Drain",
+                  "Pre-recharge",
+                  "Recharge",
+                  "Pre-fill",
+                  "Fill",
+                  "Pre-idle",
+                };
+                ESP_LOGI("main", "State change %d -> %d", id(cycle_state), state);
+                id(cycle_state) = state;
+                id(text_stage).publish_state(stages[state]);
+            - if:
+                condition:
+                  lambda: "return state == 0;"
+                then:
+                  - event.trigger:
+                      id: my_event
+                      event_type: cycle_done
+                  - homeassistant.event:
+                      event: esphome.water_softener_done
+                      data_template:
+                        drop: "{{ drop }}"
+                        duration: "{{ duration }}"
+                      variables:
+                        drop: !lambda |-
+                          return id(idle_weight) - weight;
+                        duration: !lambda |-
+                          return (millis() - id(idle_time)) / 1000;
+
+event:
+  - platform: template
+    id: my_event
+    name: Cycle Done
+    icon: mdi:water-check
+    event_types:
+      - cycle_done
+
+text_sensor:
+  - platform: template
+    name: Stage
+    id: text_stage
+    entity_category: diagnostic
+    icon: mdi:state-machine
+    update_interval: never
+    lambda: |
+      return {};
 
 valve:
   - platform: template
