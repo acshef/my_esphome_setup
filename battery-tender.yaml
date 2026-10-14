@@ -31,7 +31,7 @@ globals:
     type: int
     initial_value: "0"
     restore_value: false
-  
+
 logger:
   baud_rate: 0 # (UART logging interferes with cse7766)
 
@@ -56,7 +56,7 @@ binary_sensor:
   # (the button must be pressed) when booting this
   # device or else it will enter bootloader mode.
   #
-  # If the cabinet is closed (binary sensor turns off / is released),
+  # If the cabinet is opened (binary sensor turns on / is pressed),
   # the relay should turn on.
   # If the power consumption is less than X watts for Y seconds,
   # the relay should turn off.
@@ -69,12 +69,10 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: True
     filters:
-      - delayed_on: 50ms
-      - delayed_off: 500ms
-    on_release:
-        then:
-          - switch.turn_on: relay
-    
+      - delayed_on_off: 500ms
+    on_press:
+      then:
+        - switch.turn_on: relay
   - platform: template
     id: done_charging
     condition:
@@ -104,6 +102,7 @@ binary_sensor:
                   variables:
                     duration: !lambda |-
                       return (millis() - id(last_relay_on_time)) / 1000;
+
 sensor:
   - platform: cse7766
     current:
