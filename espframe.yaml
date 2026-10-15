@@ -9,13 +9,27 @@ packages:
 
 esp32:
   framework:
-    advanced:
-      enable_ota_rollback: false
+    sdkconfig_options:
+      CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL: "16384"
 
-safe_mode:
-  disabled: true
-  boot_is_good_after: 0s
-  boot_is_good_on_shutdown: true
+network:
+  enable_ipv6: false
+
+api:
+  encryption: !remove
+
+font:
+  - id: !extend noto_325_150_font
+  - id: !extend noto_400_46_font
+    extras: []
+  - id: !extend noto_400_30_font
+    extras: []
+  - id: !extend noto_400_28_font
+    extras: []
+  - id: !extend noto_400_32_font
+    extras: []
+  - id: !extend noto_location_400_36_font
+    extras: []
 
 substitutions:
   NODE_NAME: espframe
@@ -24,6 +38,11 @@ substitutions:
   friendly_name: $FRIENDLY_NAME # Required by espframe
   immich_base_url: !secret immich_base_url
   immich_api_key: !secret immich_api_key
+  arabic_location_glyphs: ""
+  cyrillic_translation_glyphs: ""
+  greek_cyrillic_vietnamese_glyphs: ""
+  hebrew_location_glyphs: ""
+  hebrew_ui_glyphs: ""
 
 binary_sensor:
   - id: !extend ink_ha_connected
@@ -54,12 +73,27 @@ button:
     internal: true
   - id: !extend firmware_check_for_update
     internal: true
+  - id: !extend sleep_screen
+    internal: true
+  - id: !extend wake_screen
+    internal: true
 
 select:
   - id: !extend update_frequency_select
+    internal: true
+  - id: !extend device_language_select
     internal: true
 
 switch:
   - id: !extend auto_update_switch
     internal: true
     restore_mode: ALWAYS_OFF
+  - id: !extend c6_auto_update_switch
+    name: "Firmware ESP32-C6: Auto Update"
+
+# If `esphome:` is not present, we get the following error:
+#
+# Validation is not being performed as 'esphome:' section missing.
+# If this is a package, open the file using it to perform validation
+#
+esphome:
